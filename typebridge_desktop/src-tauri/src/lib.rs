@@ -66,6 +66,9 @@ struct ServerInfoPayload {
 struct DevicePayload {
     id: String,
     name: String,
+    alias: Option<String>,
+    os: Option<String>,
+    current_ip: Option<String>,
 }
 
 // ====== Tauri Commands ======
@@ -104,14 +107,31 @@ fn update_device_name(name: String, state: tauri::State<'_, ServerState>) -> boo
 /// 获取已信任设备列表
 #[tauri::command]
 fn get_devices(state: tauri::State<'_, ServerState>) -> Vec<DevicePayload> {
+    let active = state.active_sessions.lock().unwrap();
     state
         .get_device_list()
         .into_iter()
         .map(|c| DevicePayload {
+            current_ip: active.get(&c.id).cloned(),
             id: c.id,
             name: c.name,
+            alias: c.alias,
+            os: c.os,
         })
         .collect()
+}
+
+/// 更新设备备注名
+#[tauri::command]
+fn update_device_alias(device_id: String, alias: String, state: tauri::State<'_, ServerState>) -> bool {
+    let mut clients = state.trusted_clients.lock().unwrap();
+    if let Some(client) = clients.get_mut(&device_id) {
+        client.alias = if alias.trim().is_empty() { None } else { Some(alias) };
+        drop(clients);
+        let _ = state.save_trusted_clients();
+        return true;
+    }
+    false
 }
 
 /// 移除已信任设备
@@ -156,6 +176,7 @@ pub fn run() {
             toggle_pause,
             get_app_config,
             update_device_name,
+            update_device_alias,
         ])
         .setup(move |app| {
             let app_handle = app.handle().clone();
@@ -401,7 +422,11 @@ async fn accept_connection<S>(
                                 state.verify_pairing_code(&device_id, &code, &device_name)
                             {
                                 info!("配对成功: {}", device_name);
-                                authenticated_device_name = Some(device_name.clone());
+                                authenticated_device_name = Some(device_id.clone());
+                                {
+                                    let mut active = state.active_sessions.lock().unwrap();
+                                    active.insert(device_id.clone(), addr.ip().to_string());
+                                }
                                 let _ = app_handle.emit(
                                     "status-changed",
                                     StatusPayload {
@@ -430,6 +455,10 @@ async fn accept_connection<S>(
                             if state.is_trusted(&device_id, &token) {
                                 info!("认证成功: {}", device_id);
                                 authenticated_device_name = Some(device_id.clone());
+                                {
+                                    let mut active = state.active_sessions.lock().unwrap();
+                                    active.insert(device_id.clone(), addr.ip().to_string());
+                                }
                                 let _ = app_handle.emit(
                                     "status-changed",
                                     StatusPayload {
@@ -504,6 +533,11 @@ async fn accept_connection<S>(
             }
             _ => {}
         }
+    }
+
+    if let Some(device_id) = authenticated_device_name {
+        let mut active = state.active_sessions.lock().unwrap();
+        active.remove(&device_id);
     }
 
     let _ = app_handle.emit(

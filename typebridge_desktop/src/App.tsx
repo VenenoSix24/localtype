@@ -25,20 +25,37 @@ function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<ThemeMode>(() => (localStorage.getItem('theme') as ThemeMode) || 'system');
   const [currentTheme, setCurrentTheme] = useState<'light' | 'dark'>('dark');
 
+  // Simple theme application logic
   useEffect(() => {
     localStorage.setItem('theme', theme);
     const root = window.document.documentElement;
+
+    // Remove both classes first
     root.classList.remove('light', 'dark');
-    const updateTheme = () => {
-      let resolved = theme;
-      if (theme === 'system') resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-      root.classList.add(resolved);
-      setCurrentTheme(resolved as 'light' | 'dark');
+
+    const computeTheme = () => {
+      if (theme === 'system') {
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+      return theme;
     };
-    updateTheme();
+
+    const resolved = computeTheme();
+    root.classList.add(resolved);
+    setCurrentTheme(resolved as 'light' | 'dark');
+
+    // Listener for system changes
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    mq.addEventListener('change', updateTheme);
-    return () => mq.removeEventListener('change', updateTheme);
+    const onChange = () => {
+      if (theme === 'system') {
+        root.classList.remove('light', 'dark');
+        const newResolved = mq.matches ? 'dark' : 'light';
+        root.classList.add(newResolved);
+        setCurrentTheme(newResolved as 'light' | 'dark');
+      }
+    };
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
   }, [theme]);
 
   return <ThemeContext.Provider value={{ theme, setTheme, currentTheme }}>{children}</ThemeContext.Provider>;
@@ -68,23 +85,24 @@ function Dashboard({ serverInfo, connectedCount, pairing, setPairing, pairingSuc
           <h1 className="text-4xl font-black font-heading tracking-tighter text-text-primary">运行状态</h1>
           <p className="text-text-secondary text-base">TypeBridge 服务正在后台运行</p>
         </div>
-        <div className={`flex items-center gap-3 px-5 py-2.5 rounded-2xl glass-card border-none bg-white/5`}>
+        <div className={`flex items-center gap-3 px-5 py-2 rounded-2xl bg-bg-card border border-border-subtle shadow-sm`}>
           <div className={`w-2.5 h-2.5 rounded-full ${connectedCount > 0 ? 'bg-accent-green animate-pulse shadow-[0_0_12px_rgba(34,197,94,0.6)]' : 'bg-text-muted'}`} />
-          <span className="text-sm font-bold tracking-tight">
+          <span className="text-sm font-bold tracking-tight text-text-primary">
             {connectedCount > 0 ? "已连接通信中" : "空闲中"}
           </span>
         </div>
       </div>
 
-      {/* Hero Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
+      {/* Hero Stats Grid - 2x2 or 4x1 */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
         <div className="glass-card p-6 rounded-4xl border-white/5 flex flex-col justify-between min-h-40">
           <div className="space-y-3">
             <div className="p-3 bg-accent-blue/10 rounded-2xl w-fit text-accent-blue"><Wifi size={24} /></div>
             <p className="text-sm font-bold text-text-secondary opacity-60 uppercase tracking-widest">内网地址</p>
           </div>
-          <p className="text-xl font-mono font-black text-text-primary break-all leading-tight">{serverInfo?.ip || "获取中..."}</p>
+          <p className="text-lg font-mono font-black text-text-primary break-all leading-tight">{serverInfo?.ip || "获取中..."}</p>
         </div>
+
         <div className="glass-card p-6 rounded-4xl border-white/5 flex flex-col justify-between min-h-40">
           <div className="space-y-3">
             <div className="p-3 bg-accent-green/10 rounded-2xl w-fit text-accent-green"><Activity size={24} /></div>
@@ -92,6 +110,7 @@ function Dashboard({ serverInfo, connectedCount, pairing, setPairing, pairingSuc
           </div>
           <p className="text-2xl font-mono font-black text-text-primary">{serverInfo?.port || "..."}</p>
         </div>
+
         <div className="glass-card p-6 rounded-4xl border-white/5 flex flex-col justify-between min-h-40">
           <div className="space-y-3">
             <div className="p-3 bg-accent-purple/10 rounded-2xl w-fit text-accent-purple"><Monitor size={24} /></div>
@@ -99,30 +118,30 @@ function Dashboard({ serverInfo, connectedCount, pairing, setPairing, pairingSuc
           </div>
           <p className="text-xl font-black text-text-primary truncate">{serverInfo?.device_name || "..."}</p>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="glass-card p-8 rounded-4xl border-white/5 space-y-4">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-white/5 rounded-2xl text-text-primary"><Smartphone size={24} /></div>
-            <div>
-              <p className="text-xl font-bold">连接统计</p>
-              <p className="text-sm text-text-secondary">当前活动会话</p>
-            </div>
+        <div className="glass-card p-6 rounded-4xl border-white/5 flex flex-col justify-between min-h-40">
+          <div className="space-y-3">
+            <div className="p-3 bg-white/5 rounded-2xl w-fit text-text-primary"><Smartphone size={24} /></div>
+            <p className="text-sm font-bold text-text-secondary opacity-60 uppercase tracking-widest">活跃连接</p>
           </div>
-          <div className="flex items-baseline gap-2 pt-2">
-            <span className="text-5xl font-black text-accent-blue">{connectedCount}</span>
-            <span className="text-text-muted font-bold italic">Active Devices</span>
+          <div className="flex items-baseline gap-2">
+            <span className="text-4xl font-black text-accent-blue">{connectedCount}</span>
+            <span className="text-text-muted font-bold italic">Active</span>
           </div>
         </div>
-        <div className="glass-card p-8 rounded-4xl border-white/5 space-y-4 flex flex-col justify-center">
-          <div className="flex items-center gap-4 mb-2">
-            <div className="w-3 h-3 bg-accent-green rounded-full" />
-            <p className="text-lg font-bold">输入服务已就绪</p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 mb-10">
+        <div className="glass-card p-6 rounded-4xl border-white/5 space-y-4 flex items-center gap-6">
+          <div className="p-4 bg-accent-green/10 rounded-2xl text-accent-green shrink-0">
+            <div className="w-4 h-4 bg-accent-green rounded-full animate-pulse shadow-[0_0_12px_rgba(34,197,94,0.6)]" />
           </div>
-          <p className="text-sm text-text-secondary leading-relaxed">
-            请在手机端 App 扫描您的局域网，选择并连接到本设备。连接后，手机端的输入内容将实时同步到电脑光标处。
-          </p>
+          <div className="space-y-1">
+            <p className="text-lg font-bold text-text-primary">服务已就绪</p>
+            <p className="text-sm text-text-secondary leading-relaxed">
+              请在手机端 App 连接到本设备。连接后，输入内容将实时同步。
+            </p>
+          </div>
         </div>
       </div>
 
@@ -164,50 +183,90 @@ function Dashboard({ serverInfo, connectedCount, pairing, setPairing, pairingSuc
   );
 }
 
-function DevicesPage({ devices, onRemoveDevice }: any) {
+function DevicesPage({ devices, onRemoveDevice, onUpdateAlias }: any) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [aliasBuffer, setAliasBuffer] = useState("");
+
+  const handleStartEdit = (device: any) => {
+    setEditingId(device.id);
+    setAliasBuffer(device.alias || "");
+  };
+
+  const handleSaveEdit = async (id: string) => {
+    await onUpdateAlias(id, aliasBuffer);
+    setEditingId(null);
+  };
+
   return (
-    <div className="flex flex-col h-full w-full max-w-2xl mx-auto px-6 py-4 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold font-heading tracking-tight">设备管理</h1>
-          <p className="text-text-secondary text-sm">查看和管理已配对的受信任设备</p>
-        </div>
+    <div className="flex flex-col h-full w-full max-w-3xl mx-auto px-6 py-4 space-y-8 pb-12">
+      <div>
+        <h1 className="text-3xl font-bold font-heading tracking-tight text-text-primary">设备管理</h1>
+        <p className="text-text-secondary text-sm">查看、重命名或取消已配对设备的授权</p>
       </div>
 
-      <div className="glass-card rounded-3xl overflow-hidden min-h-[200px]">
-        {devices.length === 0 ? (
-          <div className="h-[300px] flex flex-col items-center justify-center text-text-muted gap-4">
-            <Smartphone size={48} className="opacity-20" />
-            <p>暂无已配对设备</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-border-subtle">
-            {devices.map((device: any) => (
-              <div key={device.id} className="p-6 flex items-center justify-between hover:bg-white/5 transition group">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-accent-blue/10 rounded-2xl flex items-center justify-center text-accent-blue">
-                    <Smartphone size={24} />
+      {devices.length === 0 ? (
+        <div className="glass-card rounded-4xl h-64 flex flex-col items-center justify-center text-text-muted gap-4">
+          <Smartphone size={48} className="opacity-20" />
+          <p>暂无已配对设备</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {devices.map((device: any) => (
+            <div key={device.id} className="glass-card p-6 rounded-3xl border-white/5 space-y-4 group relative overflow-hidden">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2.5 rounded-xl ${device.current_ip ? 'bg-accent-green/10 text-accent-green' : 'bg-accent-blue/10 text-accent-blue'}`}>
+                    <Smartphone size={20} />
                   </div>
                   <div>
-                    <h3 className="font-bold text-text-primary">{device.name}</h3>
-                    <p className="text-xs text-text-secondary font-mono">{device.id}</p>
+                    {editingId === device.id ? (
+                      <input
+                        autoFocus
+                        value={aliasBuffer}
+                        onChange={(e) => setAliasBuffer(e.target.value)}
+                        onBlur={() => handleSaveEdit(device.id)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSaveEdit(device.id)}
+                        className="bg-bg-deep/50 border border-accent-blue rounded-lg px-2 py-0.5 text-sm focus:outline-none"
+                      />
+                    ) : (
+                      <h3 className="font-bold text-text-primary flex items-center gap-2">
+                        {device.alias || device.name}
+                        <button onClick={() => handleStartEdit(device)} className="opacity-0 group-hover:opacity-100 transition p-1 hover:bg-white/10 rounded-md cursor-pointer">
+                          <Power size={12} className="rotate-90" /> {/* Using Power as a dummy gear/edit icon for now or just text */}
+                        </button>
+                      </h3>
+                    )}
+                    <p className="text-[10px] text-text-secondary opacity-60">{device.name}</p>
                   </div>
                 </div>
                 <button
                   onClick={() => onRemoveDevice(device.id)}
-                  className="p-2 text-text-muted hover:text-accent-destruct hover:bg-accent-destruct/10 rounded-xl transition-all opacity-0 group-hover:opacity-100 cursor-pointer"
+                  className="p-2 text-text-muted hover:text-accent-destruct hover:bg-accent-destruct/10 rounded-xl transition cursor-pointer"
                 >
-                  <Trash2 size={20} />
+                  <Trash2 size={18} />
                 </button>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+
+              <div className="grid grid-cols-2 gap-2 pt-2">
+                <div className="bg-white/5 rounded-xl p-2 space-y-1">
+                  <p className="text-[9px] uppercase tracking-tighter text-text-muted">OS / Type</p>
+                  <p className="text-[11px] font-bold text-text-secondary">{device.os || "Android/iOS"}</p>
+                </div>
+                <div className="bg-white/5 rounded-xl p-2 space-y-1">
+                  <p className="text-[9px] uppercase tracking-tighter text-text-muted">Status</p>
+                  <p className={`text-[11px] font-bold ${device.current_ip ? 'text-accent-green' : 'text-text-muted'}`}>
+                    {device.current_ip ? `在线 (${device.current_ip})` : "离线"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="bg-accent-blue/5 p-4 rounded-2xl border border-accent-blue/10">
-        <p className="text-xs text-accent-blue/80 leading-relaxed">
-          <b>提示:</b> 移除设备后，下次连接需要重新扫描二维码配对。
+        <p className="text-xs text-accent-blue/80 leading-relaxed font-medium">
+          <b>安全提示:</b> 移除设备后，该设备持有的令牌将失效，下次连接需重新验证。
         </p>
       </div>
     </div>
@@ -347,6 +406,11 @@ function AppLayout() {
     fetchData();
   };
 
+  const handleUpdateAlias = async (deviceId: string, alias: string) => {
+    await invoke("update_device_alias", { deviceId, alias });
+    fetchData();
+  };
+
   useEffect(() => {
     fetchData();
     const listeners = [
@@ -358,8 +422,9 @@ function AppLayout() {
     return () => { listeners.forEach(l => l.then(f => f())); };
   }, [fetchData]);
 
+  // Simple and clean main layout, no forced rounded corners or borders on the window itself
   return (
-    <div className="flex w-screen h-screen bg-bg-deep/80 backdrop-blur-3xl overflow-hidden text-text-primary transition-colors duration-500 border border-white/5 rounded-xl shadow-2xl">
+    <div className="flex w-screen h-screen bg-bg-deep text-text-primary select-none overflow-hidden">
       {/* Sidebar Rail */}
       <aside data-tauri-drag-region className="w-24 bg-bg-glass backdrop-blur-2xl flex flex-col items-center py-8 z-20 border-r border-border-subtle">
         <div className="mb-10">
@@ -376,16 +441,12 @@ function AppLayout() {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 relative flex flex-col bg-white/5 overflow-hidden">
+      <main className="flex-1 relative flex flex-col overflow-hidden">
         {/* Window Drag Area - Top Bar */}
-        <div data-tauri-drag-region className="h-12 w-full shrink-0 flex items-center justify-between px-6 z-30">
-          <div data-tauri-drag-region className="flex-1 h-full" />
-          <div className="flex items-center gap-2">
-            {/* Potential window controls could go here if native titlebar is disabled entirely */}
-          </div>
+        <div data-tauri-drag-region className="h-6 w-full shrink-0 flex items-center justify-between px-6 z-30">
         </div>
 
-        <div className="flex-1 overflow-y-auto scrollbar-none">
+        <div className="flex-1 overflow-y-auto scrollbar-none pb-12">
           <Routes>
             <Route path="/" element={
               <Dashboard
@@ -401,6 +462,7 @@ function AppLayout() {
               <DevicesPage
                 devices={devices}
                 onRemoveDevice={handleRemoveDevice}
+                onUpdateAlias={handleUpdateAlias}
               />
             } />
             <Route path="/settings" element={<SettingsPage onRefresh={fetchData} />} />

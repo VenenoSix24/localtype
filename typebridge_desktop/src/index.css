@@ -42,11 +42,8 @@
 /* Dark Mode Overrides */
 :root.dark {
   --color-bg-deep: #000000;
-  /* Deep OLED Black as base */
   --color-bg-glass: rgba(28, 28, 30, 0.75);
-  /* Dark Glass */
   --color-bg-card: rgba(44, 44, 46, 0.70);
-  /* Elevated Dark Card */
   --color-bg-card-hover: rgba(58, 58, 60, 0.9);
 
   --color-border-subtle: rgba(255, 255, 255, 0.12);
@@ -58,20 +55,18 @@
   --color-text-muted: #636366;
 
   --color-accent-blue: #0A84FF;
-  /* Dark Mode Blue (Lighter) */
-  --color-accent-green: #30D158;
 }
 
 body {
   margin: 0;
   padding: 0;
-  background-color: transparent;
-  /* Allow vibrancy to show through */
+  background-color: var(--color-bg-deep);
   color: var(--color-text-primary);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
   user-select: none;
+  transition: background-color 0.3s ease;
 }
 
 /* Glass Utility - 核心磨砂效果 */

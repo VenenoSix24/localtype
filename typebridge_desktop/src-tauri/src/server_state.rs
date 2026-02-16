@@ -15,6 +15,8 @@ use serde::{Deserialize, Serialize};
 pub struct TrustedClient {
     pub id: String,
     pub name: String,
+    pub alias: Option<String>,
+    pub os: Option<String>,
     pub token: String,
     pub last_seen: u64,
 }
@@ -39,6 +41,7 @@ pub struct ServerState {
     pub trusted_clients: Arc<Mutex<HashMap<String, TrustedClient>>>,
     pub config: Arc<Mutex<AppConfig>>,
     pub pending_pair_codes: Arc<Mutex<HashMap<String, (String, Instant)>>>,
+    pub active_sessions: Arc<Mutex<HashMap<String, String>>>, // device_id -> IP
     devices_path: PathBuf,
     config_path: PathBuf,
 }
@@ -63,6 +66,7 @@ impl ServerState {
             trusted_clients: Arc::new(Mutex::new(trusted_clients)),
             config: Arc::new(Mutex::new(config)),
             pending_pair_codes: Arc::new(Mutex::new(HashMap::new())),
+            active_sessions: Arc::new(Mutex::new(HashMap::new())),
             devices_path,
             config_path,
         }
@@ -143,6 +147,8 @@ impl ServerState {
                     TrustedClient {
                         id: client_id.to_string(),
                         name: client_name.to_string(),
+                        alias: None,
+                        os: None, // Will be updated if client sends it
                         token: token.clone(),
                         last_seen: 0,
                     },
