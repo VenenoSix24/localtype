@@ -1,0 +1,109 @@
+@import "tailwindcss";
+
+/* TypeBridge 设计系统 - Dark OLED + Glassmorphism */
+@theme {
+  /* 深色模式默认值 (Tailwind v4 会将其放入 :root) */
+  --color-bg-deep: #0A0E1A;
+  --color-bg-card: rgba(255, 255, 255, 0.04);
+  --color-bg-card-hover: rgba(255, 255, 255, 0.08);
+  --color-bg-glass: rgba(30, 42, 74, 0.6);
+  --color-border-subtle: rgba(255, 255, 255, 0.08);
+  --color-border-active: rgba(59, 130, 246, 0.3);
+  --color-text-primary: #F1F5F9;
+  --color-text-secondary: #94A3B8;
+  --color-text-muted: #64748B;
+  --color-accent-blue: #3B82F6;
+  --color-accent-cyan: #22D3EE;
+  --color-success: #4ADE80;
+  --color-warning: #F97316;
+  --color-danger: #F87171;
+  --font-heading: 'Space Grotesk', sans-serif;
+  --font-body: 'DM Sans', sans-serif;
+}
+
+/* 浅色模式覆盖 */
+:root.light {
+  --color-bg-deep: #F8FAFC;
+  --color-bg-card: #FFFFFF;
+  --color-bg-card-hover: #F1F5F9;
+  --color-bg-glass: rgba(255, 255, 255, 0.8);
+  --color-border-subtle: #E2E8F0;
+  --color-border-active: rgba(59, 130, 246, 0.5);
+  --color-text-primary: #0F172A;
+  --color-text-secondary: #475569;
+  --color-text-muted: #94A3B8;
+  /* Accents 保持一致或微调 */
+}
+
+/* 全局基础样式 */
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--color-bg-deep);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* 自定义滚动条 - 沉浸感 */
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* 脉冲动画 - 用于配对码显示 */
+@keyframes pulse-glow {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.6;
+  }
+}
+
+/* 雷达波纹动画 - 状态指示器 */
+@keyframes ripple {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.6;
+  }
+
+  100% {
+    transform: scale(2.5);
+    opacity: 0;
+  }
+}
+
+/* 渐入动画 */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in-up 0.3s ease-out;
+}

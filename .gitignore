@@ -1,0 +1,43 @@
+
+# General
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Node
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Rust
+target/
+**/*.rs.bk
+
+# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+ios/Flutter/App.framework
+ios/Flutter/Flutter.framework
+ios/Flutter/Generated.xcconfig
+ios/Flutter/app.flx
+ios/Flutter/app.zip
+ios/Flutter/flutter_assets/
+ios/ServiceDefinitions.json
+ios/Runner/GeneratedPluginRegistrant.*
+android/local.properties
+.idea/
+
+# Editors
+.vscode/
+*.swp
+*.swo
+
+# Temporary files
+tmp/
+.history/
+.agent/

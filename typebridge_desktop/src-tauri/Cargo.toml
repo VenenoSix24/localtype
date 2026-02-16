@@ -1,0 +1,33 @@
+[package]
+name = "typebridge_desktop"
+version = "1.1.0"
+description = "TypeBridge 控制中心 - 手机到电脑的无缝打字桥梁"
+authors = ["ivy"]
+edition = "2021"
+
+[lib]
+name = "typebridge_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+tokio-tungstenite = "0.20"
+futures-util = "0.3"
+local-ip-address = "0.5"
+log = "0.4"
+env_logger = "0.10"
+anyhow = "1.0"
+rand = "0.8"
+directories = "5.0"
+enigo = "0.3.0"
+arboard = "3.3"
+tokio-rustls = "0.24"
+rcgen = "0.11"
+tauri-plugin-autostart = "2.5.1"
