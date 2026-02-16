@@ -417,9 +417,10 @@ async fn accept_connection<S>(
                             device_id,
                             code,
                             device_name,
+                            device_os,
                         } => {
                             if let Some(token) =
-                                state.verify_pairing_code(&device_id, &code, &device_name)
+                                state.verify_pairing_code(&device_id, &code, &device_name, device_os)
                             {
                                 info!("配对成功: {}", device_name);
                                 authenticated_device_name = Some(device_id.clone());
@@ -564,6 +565,7 @@ enum ClientMessage {
         device_id: String,
         code: String,
         device_name: String,
+        device_os: Option<String>,
     },
     Auth {
         device_id: String,

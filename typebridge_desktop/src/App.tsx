@@ -131,19 +131,7 @@ function Dashboard({ serverInfo, connectedCount, pairing, setPairing, pairingSuc
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 mb-10">
-        <div className="glass-card p-6 rounded-4xl border-white/5 space-y-4 flex items-center gap-6">
-          <div className="p-4 bg-accent-green/10 rounded-2xl text-accent-green shrink-0">
-            <div className="w-4 h-4 bg-accent-green rounded-full animate-pulse shadow-[0_0_12px_rgba(34,197,94,0.6)]" />
-          </div>
-          <div className="space-y-1">
-            <p className="text-lg font-bold text-text-primary">服务已就绪</p>
-            <p className="text-sm text-text-secondary leading-relaxed">
-              请在手机端 App 连接到本设备。连接后，输入内容将实时同步。
-            </p>
-          </div>
-        </div>
-      </div>
+      {/* Bottom spacer is handled by container pb-12, removed extra card */}
 
       {/* Floating Pairing Overlay */}
       {pairing && (
@@ -181,6 +169,15 @@ function Dashboard({ serverInfo, connectedCount, pairing, setPairing, pairingSuc
       )}
     </div>
   );
+}
+
+// Helper to map OS strings nicely
+function getMappedOS(os: string | undefined) {
+  if (!os) return "MOBILE";
+  const lower = os.toLowerCase();
+  if (lower.includes('android')) return "ANDROID";
+  if (lower.includes('ios')) return "IOS";
+  return os.toUpperCase();
 }
 
 function DevicesPage({ devices, onRemoveDevice, onUpdateAlias }: any) {
@@ -226,17 +223,32 @@ function DevicesPage({ devices, onRemoveDevice, onUpdateAlias }: any) {
                         onChange={(e) => setAliasBuffer(e.target.value)}
                         onBlur={() => handleSaveEdit(device.id)}
                         onKeyDown={(e) => e.key === 'Enter' && handleSaveEdit(device.id)}
-                        className="bg-bg-deep/50 border border-accent-blue rounded-lg px-2 py-0.5 text-sm focus:outline-none"
+                        className="bg-bg-deep/50 border border-accent-blue rounded-lg px-2 py-0.5 text-sm focus:outline-none mb-1"
                       />
                     ) : (
-                      <h3 className="font-bold text-text-primary flex items-center gap-2">
+                      <h3 className="font-bold text-text-primary flex items-center gap-2 mb-1">
                         {device.alias || device.name}
                         <button onClick={() => handleStartEdit(device)} className="opacity-0 group-hover:opacity-100 transition p-1 hover:bg-white/10 rounded-md cursor-pointer">
-                          <Power size={12} className="rotate-90" /> {/* Using Power as a dummy gear/edit icon for now or just text */}
+                          <Power size={12} className="rotate-90" />
                         </button>
                       </h3>
                     )}
-                    <p className="text-[10px] text-text-secondary opacity-60">{device.name}</p>
+
+                    {/* IP Address Row */}
+                    {device.current_ip && (
+                      <p className="text-xs font-mono text-accent-green font-bold mb-1 flex items-center gap-1">
+                        <div className="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse" />
+                        {device.current_ip}
+                      </p>
+                    )}
+
+                    {/* Metadata Row */}
+                    <div className="flex items-center gap-2 text-[10px] text-text-secondary opacity-80">
+                      <span className="bg-white/5 px-1.5 py-0.5 rounded uppercase tracking-wider font-bold">
+                        {getMappedOS(device.os)}
+                      </span>
+                      <span>{device.current_ip ? "在线" : "离线"}</span>
+                    </div>
                   </div>
                 </div>
                 <button
@@ -247,18 +259,6 @@ function DevicesPage({ devices, onRemoveDevice, onUpdateAlias }: any) {
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 pt-2">
-                <div className="bg-white/5 rounded-xl p-2 space-y-1">
-                  <p className="text-[9px] uppercase tracking-tighter text-text-muted">OS / Type</p>
-                  <p className="text-[11px] font-bold text-text-secondary">{device.os || "Android/iOS"}</p>
-                </div>
-                <div className="bg-white/5 rounded-xl p-2 space-y-1">
-                  <p className="text-[9px] uppercase tracking-tighter text-text-muted">Status</p>
-                  <p className={`text-[11px] font-bold ${device.current_ip ? 'text-accent-green' : 'text-text-muted'}`}>
-                    {device.current_ip ? `在线 (${device.current_ip})` : "离线"}
-                  </p>
-                </div>
-              </div>
             </div>
           ))}
         </div>

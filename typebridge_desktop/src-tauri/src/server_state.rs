@@ -126,6 +126,7 @@ impl ServerState {
         client_id: &str,
         code: &str,
         client_name: &str,
+        client_os: Option<String>,
     ) -> Option<String> {
         let mut pending = self.pending_pair_codes.lock().unwrap();
 
@@ -148,7 +149,7 @@ impl ServerState {
                         id: client_id.to_string(),
                         name: client_name.to_string(),
                         alias: None,
-                        os: None, // Will be updated if client sends it
+                        os: client_os, 
                         token: token.clone(),
                         last_seen: 0,
                     },
