@@ -99,6 +99,18 @@ impl ServerState {
         Ok(())
     }
 
+    pub fn update_client_os(&self, client_id: &str, os: String) {
+        let mut clients = self.trusted_clients.lock().unwrap();
+        if let Some(client) = clients.get_mut(client_id) {
+            if client.os.as_ref() != Some(&os) {
+                client.os = Some(os);
+                drop(clients);
+                let _ = self.save_trusted_clients();
+                return;
+            }
+        }
+    }
+    
     pub fn is_trusted(&self, client_id: &str, token: &str) -> bool {
         let clients = self.trusted_clients.lock().unwrap();
         if let Some(client) = clients.get(client_id) {

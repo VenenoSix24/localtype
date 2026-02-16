@@ -459,10 +459,17 @@ async fn accept_connection<S>(
                                 let _ = write.send(Message::Text(response)).await;
                             }
                         }
-                        ClientMessage::Auth { device_id, token } => {
+                        ClientMessage::Auth { device_id, token, device_os } => {
                             if state.is_trusted(&device_id, &token) {
                                 info!("认证成功: {}", device_id);
                                 authenticated_device_name = Some(device_id.clone());
+                                
+                                // Update OS info if provided
+                                if let Some(os) = device_os {
+                                    state.update_client_os(&device_id, os);
+                                    let _ = app_handle.emit("devices-changed", ());
+                                }
+
                                 {
                                     let mut active = state.active_sessions.lock().unwrap();
                                     active.insert(device_id.clone(), addr.ip().to_string());
@@ -584,6 +591,7 @@ enum ClientMessage {
     Auth {
         device_id: String,
         token: String,
+        device_os: Option<String>,
     },
     Send {
         mode: String,

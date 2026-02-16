@@ -530,8 +530,12 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
   void _sendAuth() {
     if (_channel == null) return;
     addLog('正在认证...');
-    _channel!.sink.add(jsonEncode(
-        {'type': 'auth', 'device_id': _deviceId, 'token': _authToken}));
+    _channel!.sink.add(jsonEncode({
+      'type': 'auth',
+      'device_id': _deviceId,
+      'token': _authToken,
+      'device_os': Platform.operatingSystem, // Send OS on auth too
+    }));
   }
 
   void _requestPairing() {
