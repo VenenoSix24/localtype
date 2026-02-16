@@ -380,6 +380,7 @@ async fn accept_connection<S>(
                                 );
                                 // 通知前端刷新设备列表
                                 let _ = app_handle.emit("devices-changed", ());
+                                let _ = app_handle.emit("pairing-success", ());
 
                                 let response = serde_json::to_string(
                                     &ServerResponse::PairingSuccess { token },

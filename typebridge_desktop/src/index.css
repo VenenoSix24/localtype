@@ -6,16 +6,19 @@
   --color-bg-deep: #0A0E1A;
   --color-bg-card: rgba(255, 255, 255, 0.04);
   --color-bg-card-hover: rgba(255, 255, 255, 0.08);
-  --color-bg-glass: rgba(30, 42, 74, 0.6);
-  --color-border-subtle: rgba(255, 255, 255, 0.08);
-  --color-border-active: rgba(59, 130, 246, 0.3);
-  --color-text-primary: #F1F5F9;
-  --color-text-secondary: #94A3B8;
-  --color-text-muted: #64748B;
-  --color-accent-blue: #3B82F6;
+  --color-bg-glass: rgba(15, 23, 42, 0.85);
+  /* 增加不透明度 */
+  --color-border-subtle: rgba(255, 255, 255, 0.12);
+  --color-border-active: rgba(59, 130, 246, 0.4);
+  --color-text-primary: #FFFFFF;
+  /* 纯白高对比 */
+  --color-text-secondary: #CBD5E1;
+  /* 浅灰 */
+  --color-text-muted: #94A3B8;
+  --color-accent-blue: #60A5FA;
   --color-accent-cyan: #22D3EE;
   --color-success: #4ADE80;
-  --color-warning: #F97316;
+  --color-warning: #FB923C;
   --color-danger: #F87171;
   --font-heading: 'Space Grotesk', sans-serif;
   --font-body: 'DM Sans', sans-serif;
@@ -26,12 +29,13 @@
   --color-bg-deep: #F8FAFC;
   --color-bg-card: #FFFFFF;
   --color-bg-card-hover: #F1F5F9;
-  --color-bg-glass: rgba(255, 255, 255, 0.8);
-  --color-border-subtle: #E2E8F0;
-  --color-border-active: rgba(59, 130, 246, 0.5);
+  --color-bg-glass: rgba(255, 255, 255, 0.95);
+  /* 几乎不透明 */
+  --color-border-subtle: #CBD5E1;
+  --color-border-active: rgba(59, 130, 246, 0.6);
   --color-text-primary: #0F172A;
   --color-text-secondary: #475569;
-  --color-text-muted: #94A3B8;
+  --color-text-muted: #64748B;
   /* Accents 保持一致或微调 */
 }
 

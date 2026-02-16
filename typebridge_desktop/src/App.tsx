@@ -4,7 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { QRCodeSVG } from "qrcode.react";
 import { HashRouter, Routes, Route, Link, useLocation } from "react-router-dom";
 import {
-  Keyboard, Monitor, Settings, Trash2, Lock, Moon, Sun, MonitorUp,
+  Keyboard, Monitor, Settings, Trash2, Moon, Sun, MonitorUp,
   Power, ArrowLeft, RefreshCw
 } from "lucide-react";
 
@@ -97,7 +97,7 @@ function ThemeToggle() {
 
 // ====== 页面: Dashboard ======
 function Dashboard({
-  serverInfo, status, connectedCount, devices, onRemoveDevice, pairing, setPairing
+  serverInfo, connectedCount, devices, onRemoveDevice, pairing, setPairing, pairingSuccess
 }: any) {
   const { currentTheme } = useContext(ThemeContext);
 
@@ -195,28 +195,49 @@ function Dashboard({
 
       {/* 配对弹窗 */}
       {pairing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="w-80 bg-bg-glass backdrop-blur-2xl border border-border-subtle rounded-2xl p-6 shadow-2xl space-y-5">
-            <div className="flex flex-col items-center gap-2 text-accent-blue">
-              <div className="p-3 bg-accent-blue/10 rounded-full">
-                <Lock size={24} />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-md animate-fade-in">
+          {/* Modal Container: Solid adaptive background */}
+          <div className="w-96 bg-bg-deep border border-border-active rounded-3xl p-8 shadow-2xl shadow-black/20 space-y-6 transition-all duration-300 transform scale-100 ring-1 ring-white/5">
+            {pairingSuccess ? (
+              // Success State UI
+              <div className="flex flex-col items-center gap-6 py-4 animate-scale-in">
+                <div className="p-5 bg-success/10 rounded-full text-success shadow-lg shadow-success/20 animate-bounce-short">
+                  <Monitor size={40} strokeWidth={2.5} />
+                </div>
+                <div className="text-center space-y-2">
+                  <h3 className="text-2xl font-bold text-text-primary font-[family-name:var(--font-heading)] tracking-wide">配对成功</h3>
+                  <p className="text-sm text-text-secondary">设备 <span className="font-medium text-text-primary">{pairing.device_name}</span> 已连接</p>
+                </div>
               </div>
-              <h3 className="text-lg font-semibold font-[family-name:var(--font-heading)]">设备配对请求</h3>
-            </div>
-            <p className="text-sm text-text-secondary text-center leading-relaxed">
-              设备 <span className="text-text-primary font-medium block mt-1 text-base">{pairing.device_name}</span> 请求连接
-            </p>
-            <div className="bg-bg-deep rounded-xl py-4 text-center border border-border-subtle">
-              <p className="text-4xl font-bold text-accent-cyan tracking-[0.2em] font-[family-name:var(--font-heading)] animate-pulse pl-2">
-                {pairing.code}
-              </p>
-            </div>
-            <button
-              onClick={() => setPairing(null)}
-              className="w-full py-3 rounded-xl bg-bg-card hover:bg-bg-card-hover border border-border-subtle text-sm text-text-primary font-medium transition-all cursor-pointer"
-            >
-              关闭
-            </button>
+            ) : (
+              // Standard Code UI
+              <>
+                <div className="text-center space-y-2">
+                  <h3 className="text-lg font-bold text-text-primary font-[family-name:var(--font-heading)]">连接请求</h3>
+                  <p className="text-sm text-text-secondary">
+                    设备 <span className="font-semibold text-text-primary border-b border-border-active pb-0.5">{pairing.device_name}</span>
+                    <br />正在尝试配对
+                  </p>
+                </div>
+
+                {/* Modern Clean Code Display */}
+                <div className="py-2 flex justify-center">
+                  <p className="text-6xl font-bold text-accent-cyan tracking-[0.25em] font-[family-name:var(--font-heading)] drop-shadow-lg select-text cursor-default">
+                    {pairing.code}
+                  </p>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => setPairing(null)}
+                    className="flex-1 py-3.5 rounded-2xl bg-bg-card hover:bg-bg-card-hover border border-border-subtle text-sm text-text-muted hover:text-text-primary font-medium transition-all active:scale-95 cursor-pointer"
+                  >
+                    拒绝连接
+                  </button>
+                </div>
+                <p className="text-[10px] text-text-muted text-center opacity-60">请在手机端确认配对码</p>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -317,8 +338,10 @@ function AppLayout() {
   const [serverInfo, setServerInfo] = useState<ServerInfo | null>(null);
   const [status, setStatus] = useState("启动中...");
   const [connectedCount, setConnectedCount] = useState(0);
+  /* Pairing State with Success Support */
   const [devices, setDevices] = useState<Device[]>([]);
   const [pairing, setPairing] = useState<PairingPayload | null>(null);
+  const [pairingSuccess, setPairingSuccess] = useState(false);
 
   const location = useLocation();
 
@@ -346,21 +369,32 @@ function AppLayout() {
     fetchDevices();
     const unlistenStatus = listen<StatusPayload>("status-changed", (e) => setStatus(e.payload.text));
     const unlistenConnection = listen<ConnectionPayload>("connection-changed", (e) => setConnectedCount(e.payload.count));
-    const unlistenPairing = listen<PairingPayload>("pairing-requested", (e) => setPairing(e.payload));
+    const unlistenPairing = listen<PairingPayload>("pairing-requested", (e) => {
+      setPairingSuccess(false);
+      setPairing(e.payload);
+    });
+    const unlistenPairingSuccess = listen<void>("pairing-success", () => {
+      setPairingSuccess(true);
+      setTimeout(() => {
+        setPairing(null);
+        setPairingSuccess(false);
+      }, 1500);
+    });
     const unlistenDevices = listen("devices-changed", () => fetchDevices());
 
     return () => {
       unlistenStatus.then(f => f());
       unlistenConnection.then(f => f());
       unlistenPairing.then(f => f());
+      unlistenPairingSuccess.then(f => f());
       unlistenDevices.then(f => f());
     };
   }, [fetchServerInfo, fetchDevices]);
 
   return (
     <div className="flex flex-col h-screen bg-bg-deep text-text-primary transition-colors duration-300 select-none">
-      {/* 标题栏 */}
-      <header className="flex-shrink-0 flex items-center justify-between px-5 py-4 bg-bg-glass backdrop-blur-xl border-b border-border-subtle sticky top-0 z-10">
+      {/* 标题栏 (Drag Region) */}
+      <header data-tauri-drag-region className="flex-shrink-0 flex items-center justify-between px-5 pb-4 pt-8 bg-bg-glass backdrop-blur-xl border-b border-border-subtle sticky top-0 z-10">
         <div className="flex items-center gap-3">
           {location.pathname !== "/" ? (
             <Link to="/" className="p-1 -ml-1 rounded-lg hover:bg-white/5 text-text-secondary hover:text-text-primary transition-all group">
@@ -402,6 +436,7 @@ function AppLayout() {
               onRemoveDevice={handleRemoveDevice}
               pairing={pairing}
               setPairing={setPairing}
+              pairingSuccess={pairingSuccess}
             />
           } />
           <Route path="/settings" element={<Configuration />} />
