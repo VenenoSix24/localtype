@@ -1,49 +1,72 @@
 @import "tailwindcss";
 
-/* TypeBridge 设计系统 - Dark OLED + Glassmorphism */
+/* TypeBridge Design System - Vision OS / Modern Native */
 @theme {
-  /* 深色模式默认值 (Tailwind v4 会将其放入 :root) */
-  --color-bg-deep: #0A0E1A;
-  --color-bg-card: rgba(255, 255, 255, 0.04);
-  --color-bg-card-hover: rgba(255, 255, 255, 0.08);
-  --color-bg-glass: rgba(15, 23, 42, 0.85);
-  /* 增加不透明度 */
+  /* 核心背景：磨砂玻璃体系 */
+  --color-bg-deep: #F5F5F7;
+  /* Light Mode: Off-white base */
+  --color-bg-glass: rgba(255, 255, 255, 0.72);
+  /* High transmission glass */
+  --color-bg-card: rgba(255, 255, 255, 0.65);
+  /* Floating cards */
+  --color-bg-card-hover: rgba(255, 255, 255, 0.85);
+
+  /* 边框与光效 */
+  --color-border-subtle: rgba(0, 0, 0, 0.05);
+  --color-border-active: rgba(0, 0, 0, 0.12);
+  --color-shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.08);
+  /* Soft diffuse shadow */
+
+  /* 文本系统 - San Francisco */
+  --color-text-primary: #1D1D1F;
+  /* Apple Black */
+  --color-text-secondary: #86868B;
+  /* Apple Grey */
+  --color-text-muted: #AEAEB2;
+
+  /* 功能色 */
+  --color-accent-blue: #007AFF;
+  /* System Blue */
+  --color-accent-green: #34C759;
+  /* System Green */
+  --color-accent-destruct: #FF3B30;
+  /* System Red */
+
+  --font-heading: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+  --font-body: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+
+  /* 动画曲线 */
+  --ease-spring: cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+/* Dark Mode Overrides */
+:root.dark {
+  --color-bg-deep: #000000;
+  /* Deep OLED Black as base */
+  --color-bg-glass: rgba(28, 28, 30, 0.75);
+  /* Dark Glass */
+  --color-bg-card: rgba(44, 44, 46, 0.70);
+  /* Elevated Dark Card */
+  --color-bg-card-hover: rgba(58, 58, 60, 0.9);
+
   --color-border-subtle: rgba(255, 255, 255, 0.12);
-  --color-border-active: rgba(59, 130, 246, 0.4);
+  --color-border-active: rgba(255, 255, 255, 0.25);
+  --color-shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.45);
+
   --color-text-primary: #FFFFFF;
-  /* 纯白高对比 */
-  --color-text-secondary: #CBD5E1;
-  /* 浅灰 */
-  --color-text-muted: #94A3B8;
-  --color-accent-blue: #60A5FA;
-  --color-accent-cyan: #22D3EE;
-  --color-success: #4ADE80;
-  --color-warning: #FB923C;
-  --color-danger: #F87171;
-  --font-heading: 'Space Grotesk', sans-serif;
-  --font-body: 'DM Sans', sans-serif;
+  --color-text-secondary: #98989D;
+  --color-text-muted: #636366;
+
+  --color-accent-blue: #0A84FF;
+  /* Dark Mode Blue (Lighter) */
+  --color-accent-green: #30D158;
 }
 
-/* 浅色模式覆盖 */
-:root.light {
-  --color-bg-deep: #F8FAFC;
-  --color-bg-card: #FFFFFF;
-  --color-bg-card-hover: #F1F5F9;
-  --color-bg-glass: rgba(255, 255, 255, 0.95);
-  /* 几乎不透明 */
-  --color-border-subtle: #CBD5E1;
-  --color-border-active: rgba(59, 130, 246, 0.6);
-  --color-text-primary: #0F172A;
-  --color-text-secondary: #475569;
-  --color-text-muted: #64748B;
-  /* Accents 保持一致或微调 */
-}
-
-/* 全局基础样式 */
 body {
   margin: 0;
   padding: 0;
-  background-color: var(--color-bg-deep);
+  background-color: transparent;
+  /* Allow vibrancy to show through */
   color: var(--color-text-primary);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
@@ -51,63 +74,107 @@ body {
   user-select: none;
 }
 
-/* 自定义滚动条 - 沉浸感 */
-::-webkit-scrollbar {
+/* Glass Utility - 核心磨砂效果 */
+.glass-panel {
+  background: var(--color-bg-glass);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--color-border-subtle);
+  box-shadow: var(--color-shadow-glass);
+}
+
+.glass-card {
+  background: var(--color-bg-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border-subtle);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+  transition: all 0.3s var(--ease-spring);
+}
+
+.glass-card:hover {
+  background: var(--color-bg-card-hover);
+  border-color: var(--color-border-active);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.06);
+}
+
+/* Waveform Animation */
+.waveform-bar {
   width: 4px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background-color: var(--color-accent-blue);
   border-radius: 2px;
+  animation: wave 1.2s ease-in-out infinite;
+  opacity: 0.6;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-/* 脉冲动画 - 用于配对码显示 */
-@keyframes pulse-glow {
+@keyframes wave {
 
   0%,
   100% {
-    opacity: 1;
+    height: 8px;
+    opacity: 0.4;
   }
 
   50% {
-    opacity: 0.6;
+    height: 24px;
+    opacity: 1;
   }
 }
 
-/* 雷达波纹动画 - 状态指示器 */
-@keyframes ripple {
+/* Levitation Animation */
+@keyframes levitate {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.animate-levitate {
+  animation: levitate 4s ease-in-out infinite;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Base Animations */
+@keyframes scale-in {
   0% {
-    transform: scale(0.8);
-    opacity: 0.6;
+    transform: scale(0.95);
+    opacity: 0;
   }
 
   100% {
-    transform: scale(2.5);
-    opacity: 0;
+    transform: scale(1);
+    opacity: 1;
   }
 }
 
-/* 渐入动画 */
-@keyframes fade-in-up {
+.animate-scale-in {
+  animation: scale-in 0.4s var(--ease-spring) forwards;
+}
+
+@keyframes fade-in {
   from {
     opacity: 0;
-    transform: translateY(8px);
   }
 
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
 .animate-fade-in {
-  animation: fade-in-up 0.3s ease-out;
+  animation: fade-in 0.6s ease-out forwards;
 }

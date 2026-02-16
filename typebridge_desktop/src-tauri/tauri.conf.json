@@ -13,13 +13,13 @@
     "windows": [
       {
         "title": "TypeBridge 控制中心",
-        "width": 480,
-        "height": 620,
+        "width": 800,
+        "height": 600,
         "resizable": true,
-        "minWidth": 400,
-        "minHeight": 500,
-        "transparent": true,
-        "titleBarStyle": "Overlay",
+        "minWidth": 600,
+        "minHeight": 400,
+        "transparent": false,
+        "titleBarStyle": "Visible",
         "decorations": true
       }
     ],

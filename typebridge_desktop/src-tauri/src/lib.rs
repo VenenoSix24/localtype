@@ -70,13 +70,35 @@ struct DevicePayload {
 
 // ====== Tauri Commands ======
 
-/// 获取服务器信息（IP + 端口）
+/// 获取服务器信息（IP + 端口 + 设备名）
 #[tauri::command]
-fn get_server_info() -> ServerInfoPayload {
+fn get_server_info(state: tauri::State<'_, ServerState>) -> serde_json::Value {
     let ip = local_ip_address::local_ip()
         .map(|ip| ip.to_string())
         .unwrap_or_else(|_| "127.0.0.1".to_string());
-    ServerInfoPayload { ip, port: WSS_PORT }
+    
+    let config = state.config.lock().unwrap();
+    serde_json::json!({
+        "ip": ip,
+        "port": WSS_PORT,
+        "device_name": config.device_name
+    })
+}
+
+/// 获取应用配置
+#[tauri::command]
+fn get_app_config(state: tauri::State<'_, ServerState>) -> server_state::AppConfig {
+    state.config.lock().unwrap().clone()
+}
+
+/// 更新设备名称
+#[tauri::command]
+fn update_device_name(name: String, state: tauri::State<'_, ServerState>) -> bool {
+    let mut config = state.config.lock().unwrap();
+    config.device_name = name;
+    drop(config);
+    let _ = state.save_config();
+    true
 }
 
 /// 获取已信任设备列表
@@ -132,6 +154,8 @@ pub fn run() {
             get_devices,
             remove_device,
             toggle_pause,
+            get_app_config,
+            update_device_name,
         ])
         .setup(move |app| {
             let app_handle = app.handle().clone();
@@ -200,8 +224,9 @@ pub fn run() {
                     };
 
                     // 启动 UDP 广播发现服务
+                    let discovery_state = state.clone();
                     tokio::spawn(async move {
-                        if let Err(e) = run_discovery_service().await {
+                        if let Err(e) = run_discovery_service(discovery_state).await {
                             error!("UDP 发现服务错误: {}", e);
                         }
                     });
@@ -249,7 +274,7 @@ pub fn run() {
 
 // ====== 网络服务 ======
 
-async fn run_discovery_service() -> std::io::Result<()> {
+async fn run_discovery_service(state: ServerState) -> std::io::Result<()> {
     let socket = UdpSocket::bind(format!("0.0.0.0:{}", UDP_PORT)).await?;
     socket.set_broadcast(true)?;
     info!("UDP 发现服务监听: {}", UDP_PORT);
@@ -257,17 +282,22 @@ async fn run_discovery_service() -> std::io::Result<()> {
     let mut buf = [0u8; 1024];
 
     loop {
-        let local_ip =
-            local_ip_address::local_ip().unwrap_or("127.0.0.1".parse().unwrap());
-
         let (len, addr) = socket.recv_from(&mut buf).await?;
         let msg = String::from_utf8_lossy(&buf[..len]);
         debug!("收到 UDP 广播 from {}: {}", addr, msg);
 
         if msg.trim() == "typebridge_discovery" {
-            let response = format!("typebridge_server:{}", local_ip);
+            let local_ip = local_ip_address::local_ip().unwrap_or("127.0.0.1".parse().unwrap());
+            let device_name = {
+                let config = state.config.lock().unwrap();
+                config.device_name.clone()
+            };
+            let os_name = std::env::consts::OS;
+            
+            // Format: typebridge_server:[IP]|[NAME]|[OS]
+            let response = format!("typebridge_server:{}|{}|{}", local_ip, device_name, os_name);
             socket.send_to(response.as_bytes(), addr).await?;
-            info!("已响应发现请求 from {}", addr);
+            info!("已响应发现请求 from {}: {} (OS: {})", addr, device_name, os_name);
         }
     }
 }

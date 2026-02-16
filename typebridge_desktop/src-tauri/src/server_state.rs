@@ -19,10 +19,27 @@ pub struct TrustedClient {
     pub last_seen: u64,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct AppConfig {
+    pub device_name: String,
+}
+
+impl Default for AppConfig {
+    fn default() -> Self {
+        Self {
+            device_name: hostname::get()
+                .map(|h| h.to_string_lossy().into_owned())
+                .unwrap_or_else(|_| "TypeBridge Desktop".to_string()),
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct ServerState {
     pub trusted_clients: Arc<Mutex<HashMap<String, TrustedClient>>>,
+    pub config: Arc<Mutex<AppConfig>>,
     pub pending_pair_codes: Arc<Mutex<HashMap<String, (String, Instant)>>>,
+    devices_path: PathBuf,
     config_path: PathBuf,
 }
 
@@ -32,16 +49,36 @@ impl ServerState {
             .expect("Could not determine config directory");
         let config_dir = proj_dirs.config_dir();
         fs::create_dir_all(config_dir).ok();
-        let config_path = config_dir.join("trusted_devices.json");
+        
+        let devices_path = config_dir.join("trusted_devices.json");
+        let config_path = config_dir.join("config.json");
 
-        let trusted_clients = Self::load_trusted_clients(&config_path)
+        let trusted_clients = Self::load_trusted_clients(&devices_path)
             .unwrap_or_else(|_| HashMap::new());
+            
+        let config = Self::load_config(&config_path)
+            .unwrap_or_default();
 
         ServerState {
             trusted_clients: Arc::new(Mutex::new(trusted_clients)),
+            config: Arc::new(Mutex::new(config)),
             pending_pair_codes: Arc::new(Mutex::new(HashMap::new())),
+            devices_path,
             config_path,
         }
+    }
+
+    fn load_config(path: &PathBuf) -> Option<AppConfig> {
+        let file = File::open(path).ok()?;
+        let reader = BufReader::new(file);
+        serde_json::from_reader(reader).ok()
+    }
+
+    pub fn save_config(&self) -> anyhow::Result<()> {
+        let config = self.config.lock().unwrap();
+        let file = File::create(&self.config_path)?;
+        serde_json::to_writer_pretty(file, &*config)?;
+        Ok(())
     }
 
     fn load_trusted_clients(path: &PathBuf) -> anyhow::Result<HashMap<String, TrustedClient>> {
@@ -53,7 +90,7 @@ impl ServerState {
 
     pub fn save_trusted_clients(&self) -> anyhow::Result<()> {
         let clients = self.trusted_clients.lock().unwrap();
-        let file = File::create(&self.config_path)?;
+        let file = File::create(&self.devices_path)?;
         serde_json::to_writer_pretty(file, &*clients)?;
         Ok(())
     }

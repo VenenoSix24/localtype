@@ -13,15 +13,17 @@ enum ConnectionStatus { disconnected, connecting, connected, error }
 
 enum AuthStatus { authenticated, unauthenticated, pairingRequired }
 
-/// 已发现的设备信息
+/// 已发现/已配对的设备信息
 class DiscoveredDevice {
   final String ip;
   final String name;
+  final String? os;
   final DateTime discoveredAt;
 
   DiscoveredDevice({
     required this.ip,
     required this.name,
+    this.os,
     required this.discoveredAt,
   });
 }
@@ -52,7 +54,6 @@ class QuickPhrase {
 }
 
 /// TypeBridge 核心状态管理
-/// 负责 WebSocket 连接、认证、文本发送、设备发现、统计及生命周期管理
 class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
   WebSocketChannel? _channel;
   ConnectionStatus _status = ConnectionStatus.disconnected;
@@ -64,7 +65,8 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
   bool _isRealtime = false;
   bool _isDarkMode = false;
   String? _deviceId;
-  String? _deviceName;
+  String? _deviceName; // Local device name
+  String? _remoteServerName; // Connected server name
   String? _authToken;
 
   Timer? _heartbeatTimer;
@@ -74,19 +76,22 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
   String? _lastConnectedIp;
   String _injectionMethod = 'unicode';
 
-  // --- V1.1 新增：设备发现 ---
+  // --- V1.1 设备发现 ---
   final List<DiscoveredDevice> _discoveredDevices = [];
   bool _isScanning = false;
   Timer? _scanTimer;
 
-  // --- V1.1 新增：历史记录 ---
+  // --- V1.1 已配对设备 ---
+  List<DiscoveredDevice> _pairedDevices = [];
+
+  // --- V1.1 历史记录 ---
   List<String> _sendHistory = [];
   static const int _maxHistory = 10;
 
-  // --- V1.1 新增：快捷短语 ---
+  // --- V1.1 快捷短语 ---
   List<QuickPhrase> _quickPhrases = [];
 
-  // --- V1.1 新增：字数统计（仅聊天模式） ---
+  // --- V1.1 字数统计 ---
   int _totalChars = 0;
   int _todayChars = 0;
   String _todayDateKey = '';
@@ -96,8 +101,7 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   // Getters
   ConnectionStatus get status => _status;
-  ConnectionStatus get connectionStatus =>
-      _status; // Alias for UI compatibility
+  ConnectionStatus get connectionStatus => _status;
   AuthStatus get authStatus => _authStatus;
   List<String> get logs => _logs;
   bool get isRealtime => _isRealtime;
@@ -105,7 +109,9 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
   String get injectionMethod => _injectionMethod;
   String? get connectedIp => _lastConnectedIp;
   String? get deviceName => _deviceName;
+  String? get remoteServerName => _remoteServerName;
   List<DiscoveredDevice> get discoveredDevices => _discoveredDevices;
+  List<DiscoveredDevice> get pairedDevices => _pairedDevices;
   bool get isScanning => _isScanning;
   List<String> get sendHistory => _sendHistory;
   List<QuickPhrase> get quickPhrases => _quickPhrases;
@@ -130,7 +136,6 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
     super.dispose();
   }
 
-  /// NOTE: 生命周期监听 —— 从后台切回前台时立即检查连接状态
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
@@ -169,24 +174,98 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
       await prefs.setString('device_name', _deviceName!);
     }
 
-    // 加载历史记录
+    // Load History
     final historyJson = prefs.getStringList('send_history');
-    if (historyJson != null) {
-      _sendHistory = historyJson;
-    }
+    if (historyJson != null) _sendHistory = historyJson;
 
-    // 加载快捷短语
+    // Load Phrases
     final phrasesJson = prefs.getString('quick_phrases');
     if (phrasesJson != null) {
       final List<dynamic> decoded = jsonDecode(phrasesJson);
       _quickPhrases = decoded.map((e) => QuickPhrase.fromJson(e)).toList();
     }
 
-    // 加载字数统计
+    // Load Stats
     _totalChars = prefs.getInt('total_chars') ?? 0;
     _todayDateKey = _getTodayKey();
     _todayChars = prefs.getInt('today_chars_$_todayDateKey') ?? 0;
 
+    // Load Paired Devices
+    await _loadPairedDevices();
+
+    notifyListeners();
+  }
+
+  // ==================== Paired Devices Logic ====================
+
+  Future<void> _loadPairedDevices() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonList = prefs.getStringList('paired_devices');
+    if (jsonList != null) {
+      try {
+        _pairedDevices = jsonList.map((str) {
+          final data = jsonDecode(str);
+          return DiscoveredDevice(
+            ip: data['ip'],
+            name: data['name'] ?? 'Unknown',
+            os: data['os'],
+            discoveredAt:
+                DateTime.tryParse(data['discoveredAt'] ?? '') ?? DateTime.now(),
+          );
+        }).toList();
+      } catch (e) {
+        addLog('加载已配对设备出错: $e');
+      }
+    }
+  }
+
+  Future<void> toggleFavorite(String ip, String name, String os) async {
+    final isSaved = _pairedDevices.any((d) => d.ip == ip);
+    if (isSaved) {
+      await removePairedDevice(ip);
+      addLog('已从收藏库移除: $name');
+    } else {
+      await _savePairedDevice(ip, name, os);
+      addLog('已加入收藏库: $name');
+    }
+  }
+
+  Future<void> _savePairedDevice(String ip, String name, String os) async {
+    final index = _pairedDevices.indexWhere((d) => d.ip == ip);
+    if (index != -1) {
+      _pairedDevices[index] = DiscoveredDevice(
+          ip: ip, name: name, os: os, discoveredAt: DateTime.now());
+    } else {
+      _pairedDevices.insert(
+          0,
+          DiscoveredDevice(
+              ip: ip, name: name, os: os, discoveredAt: DateTime.now()));
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final jsonList = _pairedDevices
+        .map((d) => jsonEncode({
+              'ip': d.ip,
+              'name': d.name,
+              'os': d.os,
+              'discoveredAt': d.discoveredAt.toIso8601String(),
+            }))
+        .toList();
+    await prefs.setStringList('paired_devices', jsonList);
+    notifyListeners();
+  }
+
+  Future<void> removePairedDevice(String ip) async {
+    _pairedDevices.removeWhere((d) => d.ip == ip);
+    final prefs = await SharedPreferences.getInstance();
+    final jsonList = _pairedDevices
+        .map((d) => jsonEncode({
+              'ip': d.ip,
+              'name': d.name,
+              'discoveredAt': d.discoveredAt.toIso8601String(),
+            }))
+        .toList();
+    await prefs.setStringList('paired_devices', jsonList);
     notifyListeners();
   }
 
@@ -195,20 +274,18 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
     return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
   }
 
-  // ==================== 日志 ====================
+  // ==================== Logs ====================
 
   void addLog(String log) {
     final now = DateTime.now();
     final timeStr =
         '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
     _logs.insert(0, '[$timeStr] $log');
-    if (_logs.length > 200) {
-      _logs.removeRange(200, _logs.length);
-    }
+    if (_logs.length > 200) _logs.removeRange(200, _logs.length);
     notifyListeners();
   }
 
-  // ==================== 主题 / 注入方式 ====================
+  // ==================== Toggles ====================
 
   void toggleRealtime(bool value) {
     _isRealtime = value;
@@ -229,9 +306,8 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  // ==================== 设备发现（Radar） ====================
+  // ==================== Discovery ====================
 
-  /// 开始扫描局域网设备，持续扫描直到手动停止或超时
   Future<void> startDeviceDiscovery() async {
     if (_isScanning) return;
     _isScanning = true;
@@ -241,7 +317,6 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
 
     _performScan();
 
-    // 每 3 秒重复扫描一次，持续 15 秒
     int scanCount = 0;
     _scanTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
       scanCount++;
@@ -266,20 +341,34 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
 
           String message = utf8.decode(d.data).trim();
           if (message.startsWith('typebridge_server:')) {
-            final parts = message.split(':');
-            final ip = parts[1];
-            // NOTE: 避免重复添加同一设备
-            if (!_discoveredDevices.any((dev) => dev.ip == ip)) {
-              final serverName = parts.length > 2
-                  ? parts.sublist(2).join(':')
-                  : 'TypeBridge Server';
-              _discoveredDevices.add(DiscoveredDevice(
-                ip: ip,
-                name: serverName,
-                discoveredAt: DateTime.now(),
-              ));
-              addLog('发现设备: $serverName ($ip)');
-              notifyListeners();
+            final content = message.substring('typebridge_server:'.length);
+            final parts = content.split('|');
+            if (parts.isNotEmpty) {
+              final ip = parts[0];
+              final serverName =
+                  parts.length > 1 ? parts[1] : 'TypeBridge Server';
+              final osName = parts.length > 2 ? parts[2] : 'desktop';
+
+              if (!_discoveredDevices.any((dev) => dev.ip == ip)) {
+                _discoveredDevices.add(DiscoveredDevice(
+                  ip: ip,
+                  name: serverName,
+                  os: osName,
+                  discoveredAt: DateTime.now(),
+                ));
+                addLog('发现设备: $serverName ($ip) [$osName]');
+                notifyListeners();
+
+                // Update paired device info if it matches
+                final pairedIndex =
+                    _pairedDevices.indexWhere((d) => d.ip == ip);
+                if (pairedIndex != -1) {
+                  final p = _pairedDevices[pairedIndex];
+                  if (p.name != serverName || p.os != osName) {
+                    _savePairedDevice(ip, serverName, osName);
+                  }
+                }
+              }
             }
           }
         });
@@ -300,12 +389,11 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  /// V1 兼容：简化版发现，仅填充 IP
   Future<void> discoverDevices() async {
     await startDeviceDiscovery();
   }
 
-  // ==================== WebSocket 连接 ====================
+  // ==================== Connection ====================
 
   Future<void> connect(String ip) async {
     if (ip.isEmpty) {
@@ -333,7 +421,19 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
       _status = ConnectionStatus.connected;
       _lastConnectedIp = ip;
       _reconnectAttempts = 0;
-      addLog('已连接到 $ip（安全连接）');
+
+      // Determine remote name
+      String nameToSave = 'Desktop ($ip)';
+      final discoveredMatch = _discoveredDevices.where((d) => d.ip == ip);
+      if (discoveredMatch.isNotEmpty) {
+        nameToSave = discoveredMatch.first.name;
+      } else {
+        final pairedMatch = _pairedDevices.where((d) => d.ip == ip);
+        if (pairedMatch.isNotEmpty) nameToSave = pairedMatch.first.name;
+      }
+      _remoteServerName = nameToSave;
+
+      addLog('已连接到 $_remoteServerName');
       notifyListeners();
 
       _startHeartbeat();
@@ -343,6 +443,8 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
       } else {
         _requestPairing();
       }
+
+      // NO automatic saving here anymore per user request
 
       _channel!.stream.listen(
         (message) {
@@ -468,13 +570,12 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
   void disconnect() {
     _stopReconnect();
     addLog('正在断开...');
-    if (_channel != null) {
-      _channel!.sink.close();
-    }
+    _channel?.sink.close();
     _cleanupConnection();
     _status = ConnectionStatus.disconnected;
     _authStatus = AuthStatus.unauthenticated;
     _lastConnectedIp = null;
+    _remoteServerName = null;
     notifyListeners();
   }
 
@@ -502,7 +603,6 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
     _heartbeatTimer = null;
   }
 
-  /// NOTE: 指数退避重连策略，带 20% 随机抖动
   void _scheduleReconnect() {
     if (_reconnectAttempts >= 8) {
       addLog('达到最大重连次数，已停止');
@@ -529,7 +629,7 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
     _reconnectAttempts = 0;
   }
 
-  // ==================== 发送文本 ====================
+  // ==================== Send Text ====================
 
   void sendText() {
     if (_status != ConnectionStatus.connected ||
@@ -556,11 +656,8 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
       if (!_isRealtime) {
         addLog(
             '已发送: ${text.length > 20 ? '${text.substring(0, 20)}...' : text}');
-
-        // V1.1: 记录历史与统计（仅聊天模式）
         _addToHistory(text);
         _addCharCount(text.length);
-
         textController.clear();
       }
     } catch (e) {
@@ -568,13 +665,14 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  /// 直接发送指定文本（用于短语和历史记录快捷发送）
   void sendDirectText(String text) {
     if (_status != ConnectionStatus.connected ||
         _authStatus != AuthStatus.authenticated) {
       return;
     }
-    if (text.isEmpty) return;
+    if (text.isEmpty) {
+      return;
+    }
 
     final message = jsonEncode({
       'type': 'send',
@@ -596,24 +694,18 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   void sendRealtimeText(String text) {
     if (!_isRealtime) return;
-
     if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
-
     _debounceTimer = Timer(const Duration(milliseconds: 150), () {
       sendText();
     });
   }
 
-  // ==================== 历史记录 ====================
-
   void _addToHistory(String text) async {
-    // 避免重复记录完全相同的内容
     _sendHistory.remove(text);
     _sendHistory.insert(0, text);
     if (_sendHistory.length > _maxHistory) {
       _sendHistory = _sendHistory.sublist(0, _maxHistory);
     }
-
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList('send_history', _sendHistory);
     notifyListeners();
@@ -626,7 +718,7 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  // ==================== 快捷短语 ====================
+  // ==================== Phrases & Stats ====================
 
   Future<void> addPhrase(String label, String content) async {
     final phrase = QuickPhrase(
@@ -651,12 +743,8 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
     await prefs.setString('quick_phrases', json);
   }
 
-  // ==================== 字数统计 ====================
-
   void _addCharCount(int count) async {
     _totalChars += count;
-
-    // 检测日期是否变更
     final todayKey = _getTodayKey();
     if (todayKey != _todayDateKey) {
       _todayDateKey = todayKey;
