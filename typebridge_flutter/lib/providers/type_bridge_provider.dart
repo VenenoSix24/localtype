@@ -514,6 +514,11 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
         case 'error':
           addLog('服务端错误: ${msg['message']}');
           break;
+        case 'revoked':
+          addLog('设备已被服务端移除');
+          clearPairingData();
+          disconnect();
+          break;
         default:
           addLog('收到: $message');
       }
@@ -535,7 +540,8 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
     _channel!.sink.add(jsonEncode({
       'type': 'requestpairing',
       'device_name': _deviceName,
-      'device_id': _deviceId
+      'device_id': _deviceId,
+      'device_os': Platform.operatingSystem, // Send OS
     }));
   }
 
@@ -546,6 +552,7 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
       'type': 'verifypairing',
       'device_id': _deviceId,
       'device_name': _deviceName,
+      'device_os': Platform.operatingSystem, // Send OS
       'code': code
     }));
   }

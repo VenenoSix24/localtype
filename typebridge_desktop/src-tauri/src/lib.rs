@@ -138,8 +138,7 @@ fn update_device_alias(device_id: String, alias: String, state: tauri::State<'_,
 #[tauri::command]
 fn remove_device(device_id: String, state: tauri::State<'_, ServerState>) -> bool {
     info!("移除设备: {}", device_id);
-    state.remove_device(&device_id);
-    true
+    state.remove_device(&device_id).is_some()
 }
 
 /// 切换注入暂停状态
@@ -377,6 +376,14 @@ async fn accept_connection<S>(
                 match serde_json::from_str::<ClientMessage>(&text) {
                     Ok(client_msg) => match client_msg {
                         ClientMessage::Ping => {
+                            // Check if device is still trusted
+                            if let Some(id) = &authenticated_device_name {
+                                if !state.is_trusted_simple(id) {
+                                     let response = serde_json::to_string(&ServerResponse::Revoked).unwrap();
+                                     let _ = write.send(Message::Text(response)).await;
+                                     break;
+                                }
+                            }
                             let pong = serde_json::to_string(&ClientMessage::Pong).unwrap();
                             if let Err(e) = write.send(Message::Text(pong)).await {
                                 error!("发送 Pong 失败: {}", e);
@@ -484,7 +491,14 @@ async fn accept_connection<S>(
                             content,
                             method,
                         } => {
-                            if authenticated_device_name.is_some() {
+                        }
+                            if let Some(id) = &authenticated_device_name {
+                                if !state.is_trusted_simple(id) {
+                                     let response = serde_json::to_string(&ServerResponse::Revoked).unwrap();
+                                     let _ = write.send(Message::Text(response)).await;
+                                     break;
+                                }
+                                
                                 if is_paused.load(Ordering::Relaxed) {
                                     continue;
                                 }
@@ -587,6 +601,7 @@ enum ServerResponse {
     PairingSuccess { token: String },
     AuthSuccess,
     AuthFailed,
+    Revoked,
     Error { message: String },
 }
 

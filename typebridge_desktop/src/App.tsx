@@ -209,7 +209,7 @@ function DevicesPage({ devices, onRemoveDevice, onUpdateAlias }: any) {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {devices.map((device: any) => (
-            <div key={device.id} className="glass-card p-6 rounded-3xl border-white/5 space-y-4 group relative overflow-hidden">
+            <div key={device.id} className="glass-card p-6 rounded-3xl border-white/5 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className={`p-2.5 rounded-xl ${device.current_ip ? 'bg-accent-green/10 text-accent-green' : 'bg-accent-blue/10 text-accent-blue'}`}>

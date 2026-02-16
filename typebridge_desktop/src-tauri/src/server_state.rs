@@ -106,6 +106,11 @@ impl ServerState {
         }
         false
     }
+    
+    pub fn is_trusted_simple(&self, client_id: &str) -> bool {
+        let clients = self.trusted_clients.lock().unwrap();
+        clients.contains_key(client_id)
+    }
 
     pub fn generate_pairing_code(&self, client_id: &str) -> String {
         let mut rng = rand::thread_rng();
@@ -171,10 +176,16 @@ impl ServerState {
     }
 
     /// 移除已信任设备
-    pub fn remove_device(&self, device_id: &str) {
+    pub fn remove_device(&self, device_id: &str) -> Option<TrustedClient> {
         let mut clients = self.trusted_clients.lock().unwrap();
-        clients.remove(device_id);
+        let removed = clients.remove(device_id);
         drop(clients);
         let _ = self.save_trusted_clients();
+        
+        // Also remove from active sessions to keep state clean
+        let mut active = self.active_sessions.lock().unwrap();
+        active.remove(device_id);
+        
+        removed
     }
 }
