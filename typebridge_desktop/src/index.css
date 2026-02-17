@@ -87,12 +87,12 @@ body {
   transition: all 0.3s var(--ease-spring);
 }
 
-/* .glass-card:hover {
+.glass-card:hover {
   background: var(--color-bg-card-hover);
   border-color: var(--color-border-active);
   transform: translateY(-2px);
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.06);
-} */
+}
 
 /* Waveform Animation */
 .waveform-bar {

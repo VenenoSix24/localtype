@@ -256,12 +256,25 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> removePairedDevice(String ip) async {
+    // 如果移除的是当前连接的设备，先通知服务器并清除本地令牌
+    if (_lastConnectedIp == ip) {
+      if (_status == ConnectionStatus.connected && _channel != null) {
+        try {
+          _channel!.sink.add(jsonEncode({'type': 'unpair'}));
+        } catch (_) {}
+      }
+      _authToken = null;
+      _saveToken('');
+      disconnect();
+    }
+
     _pairedDevices.removeWhere((d) => d.ip == ip);
     final prefs = await SharedPreferences.getInstance();
     final jsonList = _pairedDevices
         .map((d) => jsonEncode({
               'ip': d.ip,
               'name': d.name,
+              'os': d.os,
               'discoveredAt': d.discoveredAt.toIso8601String(),
             }))
         .toList();
@@ -506,18 +519,19 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
           notifyListeners();
           break;
         case 'authfailed':
-          addLog('认证失败，令牌可能已过期');
+          addLog('认证失败，令牌已失效或设备已被移除');
           _authToken = null;
           _saveToken('');
-          _requestPairing();
+          disconnect(); // 直接断开，不再自动发起配对请求
+          break;
+        case 'unpaired':
+          addLog('授权已撤销或已解除配对');
+          _authToken = null;
+          _saveToken('');
+          disconnect();
           break;
         case 'error':
           addLog('服务端错误: ${msg['message']}');
-          break;
-        case 'revoked':
-          addLog('设备已被服务端移除');
-          clearPairingData();
-          disconnect();
           break;
         default:
           addLog('收到: $message');
@@ -534,7 +548,7 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
       'type': 'auth',
       'device_id': _deviceId,
       'token': _authToken,
-      'device_os': Platform.operatingSystem, // Send OS on auth too
+      'os': Platform.operatingSystem
     }));
   }
 
@@ -545,7 +559,7 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
       'type': 'requestpairing',
       'device_name': _deviceName,
       'device_id': _deviceId,
-      'device_os': Platform.operatingSystem, // Send OS
+      'os': Platform.operatingSystem
     }));
   }
 
@@ -556,8 +570,8 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
       'type': 'verifypairing',
       'device_id': _deviceId,
       'device_name': _deviceName,
-      'device_os': Platform.operatingSystem, // Send OS
-      'code': code
+      'code': code,
+      'os': Platform.operatingSystem
     }));
   }
 

@@ -4,7 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { HashRouter, Routes, Route, Link, useLocation } from "react-router-dom";
 import {
   Settings, Moon, Monitor,
-  Wifi, ShieldCheck, Activity, Smartphone, Power, Trash2
+  Wifi, Activity, Smartphone, Power, Trash2, Edit2, ScrollText, CheckCircle2
 } from "lucide-react";
 
 // ====== Types ======
@@ -131,53 +131,55 @@ function Dashboard({ serverInfo, connectedCount, pairing, setPairing, pairingSuc
         </div>
       </div>
 
-      {/* Bottom spacer is handled by container pb-12, removed extra card */}
+      {/* Bottom spacer for padding */}
+      <div className="h-8" />
 
       {/* Floating Pairing Overlay */}
       {pairing && (
         <div className="absolute inset-0 z-50 flex items-center justify-center p-8 bg-bg-deep/80 backdrop-blur-xl rounded-4xl animate-fade-in">
           <div className="glass-card w-full max-w-sm p-10 rounded-4xl text-center space-y-8 animate-scale-in border-accent-blue/40 border-2 shadow-[0_0_50px_rgba(59,130,246,0.3)]">
-            <div className="space-y-2">
-              <h3 className="text-2xl font-black text-text-primary">新设备配对</h3>
-              <p className="text-sm text-text-secondary">请在手机端输入下方验证码</p>
-            </div>
-            <div className="text-5xl font-black font-heading text-accent-blue tracking-widest py-6 bg-white/5 rounded-3xl">
-              {pairing.code}
-            </div>
-            <div className="space-y-1">
-              <p className="text-xs text-text-muted uppercase tracking-widest">申请设备</p>
-              <p className="text-lg font-bold text-text-primary">{pairing.device_name}</p>
-            </div>
-            <button
-              onClick={() => setPairing(null)}
-              className="w-full py-4 rounded-2xl bg-white/5 hover:bg-white/10 transition text-sm font-bold tracking-widest uppercase cursor-pointer"
-            >
-              取消配对
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Simple Connection Success Toast/Overlay */}
-      {pairingSuccess && (
-        <div className="absolute top-10 right-10 z-50 animate-scale-in">
-          <div className="glass-card px-8 py-4 rounded-2xl bg-accent-green/20 border-accent-green/30 border flex items-center gap-4 text-accent-green">
-            <ShieldCheck size={24} />
-            <span className="font-bold">配对成功，通信已加密</span>
+            {pairingSuccess ? (
+              <>
+                <div className="flex flex-col items-center space-y-4 py-4">
+                  <div className="w-20 h-20 bg-accent-green/10 rounded-full flex items-center justify-center text-accent-green">
+                    <CheckCircle2 size={48} />
+                  </div>
+                  <h3 className="text-2xl font-black text-text-primary">配对成功</h3>
+                  <p className="text-sm text-text-secondary">设备已通过安全认证，通信链路加密已生效</p>
+                </div>
+                <button
+                  onClick={() => setPairing(null)}
+                  className="w-full py-4 rounded-2xl bg-accent-green text-white hover:bg-accent-green/80 transition text-sm font-bold tracking-widest uppercase cursor-pointer"
+                >
+                  我知道了
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <h3 className="text-2xl font-black text-text-primary">新设备配对</h3>
+                  <p className="text-sm text-text-secondary">请在手机端输入下方验证码</p>
+                </div>
+                <div className="text-5xl font-black font-heading text-accent-blue tracking-widest py-6 bg-white/5 rounded-3xl">
+                  {pairing.code}
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-text-muted uppercase tracking-widest">申请设备</p>
+                  <p className="text-lg font-bold text-text-primary">{pairing.device_name}</p>
+                </div>
+                <button
+                  onClick={() => setPairing(null)}
+                  className="w-full py-4 rounded-2xl bg-white/5 hover:bg-white/10 transition text-sm font-bold tracking-widest uppercase cursor-pointer text-text-secondary"
+                >
+                  取消配对
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}
     </div>
   );
-}
-
-// Helper to map OS strings nicely
-function getMappedOS(os: string | undefined) {
-  if (!os) return "MOBILE";
-  const lower = os.toLowerCase();
-  if (lower.includes('android')) return "ANDROID";
-  if (lower.includes('ios')) return "IOS";
-  return os.toUpperCase();
 }
 
 function DevicesPage({ devices, onRemoveDevice, onUpdateAlias }: any) {
@@ -209,11 +211,13 @@ function DevicesPage({ devices, onRemoveDevice, onUpdateAlias }: any) {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {devices.map((device: any) => (
-            <div key={device.id} className="glass-card p-6 rounded-3xl border-white/5 space-y-4">
+            <div key={device.id} className="glass-card p-6 rounded-3xl border-white/5 space-y-5 group relative overflow-hidden transition-all hover:border-white/10">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`p-2.5 rounded-xl ${device.current_ip ? 'bg-accent-green/10 text-accent-green' : 'bg-accent-blue/10 text-accent-blue'}`}>
+                  <div className={`p-2.5 rounded-xl relative ${device.current_ip ? 'bg-accent-green/10 text-accent-green' : 'bg-white/5 text-text-muted'}`}>
                     <Smartphone size={20} />
+                    {/* Status Dot on Icon Container */}
+                    <div className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-bg-deep ${device.current_ip ? 'bg-accent-green' : 'bg-text-muted/40'}`} />
                   </div>
                   <div>
                     {editingId === device.id ? (
@@ -223,32 +227,17 @@ function DevicesPage({ devices, onRemoveDevice, onUpdateAlias }: any) {
                         onChange={(e) => setAliasBuffer(e.target.value)}
                         onBlur={() => handleSaveEdit(device.id)}
                         onKeyDown={(e) => e.key === 'Enter' && handleSaveEdit(device.id)}
-                        className="bg-bg-deep/50 border border-accent-blue rounded-lg px-2 py-0.5 text-sm focus:outline-none mb-1"
+                        className="bg-bg-deep/50 border border-accent-blue rounded-lg px-2 py-0.5 text-sm focus:outline-none"
                       />
                     ) : (
-                      <h3 className="font-bold text-text-primary flex items-center gap-2 mb-1">
+                      <h3 className="font-bold text-text-primary flex items-center gap-2">
                         {device.alias || device.name}
-                        <button onClick={() => handleStartEdit(device)} className="opacity-0 group-hover:opacity-100 transition p-1 hover:bg-white/10 rounded-md cursor-pointer">
-                          <Power size={12} className="rotate-90" />
+                        <button onClick={() => handleStartEdit(device)} className="opacity-0 group-hover:opacity-100 transition p-1 hover:bg-white/10 rounded-md cursor-pointer ml-1">
+                          <Edit2 size={12} className="text-accent-blue" />
                         </button>
                       </h3>
                     )}
-
-                    {/* IP Address Row */}
-                    {device.current_ip && (
-                      <p className="text-xs font-mono text-accent-green font-bold mb-1 flex items-center gap-1">
-                        <div className="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse" />
-                        {device.current_ip}
-                      </p>
-                    )}
-
-                    {/* Metadata Row */}
-                    <div className="flex items-center gap-2 text-[10px] text-text-secondary opacity-80">
-                      <span className="bg-white/5 px-1.5 py-0.5 rounded uppercase tracking-wider font-bold">
-                        {getMappedOS(device.os)}
-                      </span>
-                      <span>{device.current_ip ? "在线" : "离线"}</span>
-                    </div>
+                    <p className="text-[10px] text-text-secondary opacity-60 font-medium tracking-tight truncate max-w-[120px]">{device.name}</p>
                   </div>
                 </div>
                 <button
@@ -259,6 +248,21 @@ function DevicesPage({ devices, onRemoveDevice, onUpdateAlias }: any) {
                 </button>
               </div>
 
+              {/* Info Matrix (IP & OS) - Reverted to clean text style */}
+              <div className="grid grid-cols-2 gap-4 pt-2">
+                <div className="space-y-1">
+                  <p className="text-[10px] uppercase tracking-widest text-text-muted font-bold opacity-50 underline decoration-white/5 underline-offset-4">当前连接地址</p>
+                  <p className={`text-sm font-mono font-bold ${device.current_ip ? 'text-accent-blue' : 'text-text-muted italic'}`}>
+                    {device.current_ip || "未连接"}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] uppercase tracking-widest text-text-muted font-bold opacity-50 underline decoration-white/5 underline-offset-4">设备平台</p>
+                  <p className={`text-sm font-mono font-bold ${device.current_ip ? 'text-accent-blue' : 'text-text-muted'}`}>
+                    {device.os ? device.os.toUpperCase() : "UNKNOWN"}
+                  </p>
+                </div>
+              </div>
             </div>
           ))}
         </div>
@@ -386,13 +390,51 @@ function SettingsPage({ onRefresh }: { onRefresh: () => void }) {
   )
 }
 
+function LogPage({ logs }: { logs: string[] }) {
+  return (
+    <div className="flex flex-col h-full w-full max-w-3xl mx-auto px-6 py-4 space-y-6 pb-12">
+      <div>
+        <h1 className="text-3xl font-bold font-heading tracking-tight text-text-primary">系统日志</h1>
+        <p className="text-text-secondary text-sm">实时监控服务器状态与设备通信历史</p>
+      </div>
+
+      <div className="glass-card rounded-3xl p-4 bg-black/20 font-mono text-[11px] leading-relaxed h-[500px] overflow-y-auto scrollbar-none border border-white/5">
+        {logs.length === 0 ? (
+          <div className="h-full flex items-center justify-center text-text-muted opacity-30">
+            等待系统事件...
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {logs.map((log, i) => (
+              <div key={i} className="flex gap-3 animate-fade-in group">
+                <span className="text-text-muted opacity-40 shrink-0">[{i}]</span>
+                <span className="text-text-secondary group-hover:text-text-primary transition-colors">{log}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="text-[10px] text-text-muted italic">
+        * 日志仅在当前会话保存，重启后将清空。
+      </div>
+    </div>
+  );
+}
+
 function AppLayout() {
   const [serverInfo, setServerInfo] = useState<any>(null);
   const [connectedCount, setConnectedCount] = useState(0);
   const [devices, setDevices] = useState<any[]>([]);
   const [pairing, setPairing] = useState<any>(null);
   const [pairingSuccess, setPairingSuccess] = useState(false);
+  const [logs, setLogs] = useState<string[]>([]);
   const location = useLocation();
+
+  const addLog = useCallback((msg: string) => {
+    const time = new Date().toLocaleTimeString();
+    setLogs(prev => [`[${time}] ${msg}`, ...prev].slice(0, 100));
+  }, []);
 
   const fetchData = useCallback(async () => {
     try {
@@ -414,10 +456,26 @@ function AppLayout() {
   useEffect(() => {
     fetchData();
     const listeners = [
-      listen<any>("connection-changed", (e) => setConnectedCount(e.payload.count)),
-      listen<any>("pairing-requested", (e) => { setPairingSuccess(false); setPairing(e.payload); }),
-      listen("pairing-success", () => { setPairingSuccess(true); setTimeout(() => { setPairing(null); setPairingSuccess(false); }, 1500); }),
-      listen("devices-changed", fetchData)
+      listen<any>("status-changed", (e) => {
+        addLog(e.payload.text);
+      }),
+      listen<any>("connection-changed", (e) => {
+        setConnectedCount(e.payload.count);
+        addLog(e.payload.count > 0 ? "新设备已建立 WebSocket 会话" : "会话已断开");
+      }),
+      listen<any>("pairing-requested", (e) => {
+        setPairingSuccess(false);
+        setPairing(e.payload);
+        addLog(`收到配对请求: ${e.payload.device_name}`);
+      }),
+      listen("pairing-success", () => {
+        setPairingSuccess(true);
+        addLog("验证码校验通过，配对已完成");
+      }),
+      listen("devices-changed", () => {
+        fetchData();
+        addLog("设备列表已同步更新");
+      })
     ];
     return () => { listeners.forEach(l => l.then(f => f())); };
   }, [fetchData]);
@@ -436,6 +494,7 @@ function AppLayout() {
         <div className="flex-1 w-full px-4 space-y-6">
           <SidebarItem icon={Monitor} active={location.pathname === "/"} to="/" />
           <SidebarItem icon={Smartphone} active={location.pathname === "/devices"} to="/devices" />
+          <SidebarItem icon={ScrollText} active={location.pathname === "/logs"} to="/logs" />
           <SidebarItem icon={Settings} active={location.pathname === "/settings"} to="/settings" />
         </div>
       </aside>
@@ -465,6 +524,7 @@ function AppLayout() {
                 onUpdateAlias={handleUpdateAlias}
               />
             } />
+            <Route path="/logs" element={<LogPage logs={logs} />} />
             <Route path="/settings" element={<SettingsPage onRefresh={fetchData} />} />
           </Routes>
         </div>

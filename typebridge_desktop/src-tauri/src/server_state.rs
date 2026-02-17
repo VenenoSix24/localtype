@@ -10,6 +10,7 @@ use std::{
 use directories::ProjectDirs;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
+use tokio::sync::mpsc;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct TrustedClient {
@@ -42,6 +43,7 @@ pub struct ServerState {
     pub config: Arc<Mutex<AppConfig>>,
     pub pending_pair_codes: Arc<Mutex<HashMap<String, (String, Instant)>>>,
     pub active_sessions: Arc<Mutex<HashMap<String, String>>>, // device_id -> IP
+    pub active_connections: Arc<Mutex<HashMap<String, mpsc::UnboundedSender<String>>>>, // device_id -> sender
     devices_path: PathBuf,
     config_path: PathBuf,
 }
@@ -67,6 +69,7 @@ impl ServerState {
             config: Arc::new(Mutex::new(config)),
             pending_pair_codes: Arc::new(Mutex::new(HashMap::new())),
             active_sessions: Arc::new(Mutex::new(HashMap::new())),
+            active_connections: Arc::new(Mutex::new(HashMap::new())),
             devices_path,
             config_path,
         }
@@ -99,29 +102,12 @@ impl ServerState {
         Ok(())
     }
 
-    pub fn update_client_os(&self, client_id: &str, os: String) {
-        let mut clients = self.trusted_clients.lock().unwrap();
-        if let Some(client) = clients.get_mut(client_id) {
-            if client.os.as_ref() != Some(&os) {
-                client.os = Some(os);
-                drop(clients);
-                let _ = self.save_trusted_clients();
-                return;
-            }
-        }
-    }
-    
     pub fn is_trusted(&self, client_id: &str, token: &str) -> bool {
         let clients = self.trusted_clients.lock().unwrap();
         if let Some(client) = clients.get(client_id) {
             return client.token == token;
         }
         false
-    }
-    
-    pub fn is_trusted_simple(&self, client_id: &str) -> bool {
-        let clients = self.trusted_clients.lock().unwrap();
-        clients.contains_key(client_id)
     }
 
     pub fn generate_pairing_code(&self, client_id: &str) -> String {
@@ -143,7 +129,7 @@ impl ServerState {
         client_id: &str,
         code: &str,
         client_name: &str,
-        client_os: Option<String>,
+        os: Option<String>,
     ) -> Option<String> {
         let mut pending = self.pending_pair_codes.lock().unwrap();
 
@@ -166,7 +152,7 @@ impl ServerState {
                         id: client_id.to_string(),
                         name: client_name.to_string(),
                         alias: None,
-                        os: client_os, 
+                        os,
                         token: token.clone(),
                         last_seen: 0,
                     },
@@ -188,16 +174,33 @@ impl ServerState {
     }
 
     /// 移除已信任设备
-    pub fn remove_device(&self, device_id: &str) -> Option<TrustedClient> {
+    pub fn remove_device(&self, device_id: &str) {
         let mut clients = self.trusted_clients.lock().unwrap();
-        let removed = clients.remove(device_id);
+        clients.remove(device_id);
         drop(clients);
         let _ = self.save_trusted_clients();
         
-        // Also remove from active sessions to keep state clean
-        let mut active = self.active_sessions.lock().unwrap();
-        active.remove(device_id);
-        
-        removed
+        // 同时也尝试断开活跃连接
+        self.kick_device(device_id);
+    }
+
+    /// 断开特定设备的连接并发送解除配对通知
+    pub fn kick_device(&self, device_id: &str) {
+        let mut connections = self.active_connections.lock().unwrap();
+        if let Some(tx) = connections.remove(device_id) {
+            let _ = tx.send("unpaired".to_string());
+        }
+    }
+
+    /// 更新设备操作系统信息
+    pub fn update_client_os(&self, device_id: &str, os: &str) {
+        let mut clients = self.trusted_clients.lock().unwrap();
+        if let Some(client) = clients.get_mut(device_id) {
+            if client.os.as_deref() != Some(os) {
+                client.os = Some(os.to_string());
+                drop(clients);
+                let _ = self.save_trusted_clients();
+            }
+        }
     }
 }

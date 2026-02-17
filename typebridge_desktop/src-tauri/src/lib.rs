@@ -138,7 +138,8 @@ fn update_device_alias(device_id: String, alias: String, state: tauri::State<'_,
 #[tauri::command]
 fn remove_device(device_id: String, state: tauri::State<'_, ServerState>) -> bool {
     info!("移除设备: {}", device_id);
-    state.remove_device(&device_id).is_some()
+    state.remove_device(&device_id);
+    true
 }
 
 /// 切换注入暂停状态
@@ -364,202 +365,192 @@ async fn accept_connection<S>(
     );
     let _ = app_handle.emit("connection-changed", ConnectionPayload { count: 1 });
 
-    let (mut write, mut read) = ws_stream.split();
+    let (mut ws_write, mut ws_read) = ws_stream.split();
     let mut last_text = String::new();
     let mut authenticated_device_name: Option<String> = None;
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<String>();
 
-    while let Some(msg) = read.next().await {
-        match msg {
-            Ok(Message::Text(text)) => {
-                debug!("收到: {}", text);
+    loop {
+        tokio::select! {
+            // 监听 WebSocket 消息
+            msg = ws_read.next() => {
+                let msg = match msg {
+                    Some(Ok(m)) => m,
+                    _ => break, // 连接关闭或错误
+                };
 
-                match serde_json::from_str::<ClientMessage>(&text) {
-                    Ok(client_msg) => match client_msg {
-                        ClientMessage::Ping => {
-                            // Check if device is still trusted
-                            if let Some(id) = &authenticated_device_name {
-                                if !state.is_trusted_simple(id) {
-                                     let response = serde_json::to_string(&ServerResponse::Revoked).unwrap();
-                                     let _ = write.send(Message::Text(response)).await;
-                                     break;
-                                }
-                            }
-                            let pong = serde_json::to_string(&ClientMessage::Pong).unwrap();
-                            if let Err(e) = write.send(Message::Text(pong)).await {
-                                error!("发送 Pong 失败: {}", e);
-                                break;
-                            }
-                        }
-                        ClientMessage::Pong => {}
-                        ClientMessage::RequestPairing {
-                            device_name,
-                            device_id,
-                        } => {
-                            info!("配对请求: {} ({})", device_name, device_id);
+                match msg {
+                    Message::Text(text) => {
+                        debug!("收到: {}", text);
 
-                            let code = state.generate_pairing_code(&device_id);
-                            let _ = app_handle.emit(
-                                "status-changed",
-                                StatusPayload {
-                                    text: format!("配对中: {}", device_name),
-                                },
-                            );
-
-                            // 通知前端显示配对弹窗
-                            let _ = app_handle.emit(
-                                "pairing-requested",
-                                PairingPayload {
-                                    code: code.clone(),
-                                    device_name: device_name.clone(),
-                                },
-                            );
-
-                            let response = serde_json::to_string(
-                                &ServerResponse::PairingCodeRequired,
-                            )
-                            .unwrap();
-                            let _ = write.send(Message::Text(response)).await;
-                        }
-                        ClientMessage::VerifyPairing {
-                            device_id,
-                            code,
-                            device_name,
-                            device_os,
-                        } => {
-                            if let Some(token) =
-                                state.verify_pairing_code(&device_id, &code, &device_name, device_os)
-                            {
-                                info!("配对成功: {}", device_name);
-                                authenticated_device_name = Some(device_id.clone());
-                                {
-                                    let mut active = state.active_sessions.lock().unwrap();
-                                    active.insert(device_id.clone(), addr.ip().to_string());
-                                }
-                                let _ = app_handle.emit(
-                                    "status-changed",
-                                    StatusPayload {
-                                        text: format!("已连接: {}", device_name),
-                                    },
-                                );
-                                // 通知前端刷新设备列表
-                                let _ = app_handle.emit("devices-changed", ());
-                                let _ = app_handle.emit("pairing-success", ());
-
-                                let response = serde_json::to_string(
-                                    &ServerResponse::PairingSuccess { token },
-                                )
-                                .unwrap();
-                                let _ = write.send(Message::Text(response)).await;
-                            } else {
-                                info!("配对失败: {}", device_name);
-                                let response = serde_json::to_string(&ServerResponse::Error {
-                                    message: "Invalid code".into(),
-                                })
-                                .unwrap();
-                                let _ = write.send(Message::Text(response)).await;
-                            }
-                        }
-                        ClientMessage::Auth { device_id, token, device_os } => {
-                            if state.is_trusted(&device_id, &token) {
-                                info!("认证成功: {}", device_id);
-                                authenticated_device_name = Some(device_id.clone());
-                                
-                                // Update OS info if provided
-                                if let Some(os) = device_os {
-                                    state.update_client_os(&device_id, os);
-                                    let _ = app_handle.emit("devices-changed", ());
-                                }
-
-                                {
-                                    let mut active = state.active_sessions.lock().unwrap();
-                                    active.insert(device_id.clone(), addr.ip().to_string());
-                                }
-                                let _ = app_handle.emit(
-                                    "status-changed",
-                                    StatusPayload {
-                                        text: format!("已连接: {}", device_id),
-                                    },
-                                );
-                                let _ = app_handle
-                                    .emit("connection-changed", ConnectionPayload { count: 1 });
-
-                                let response =
-                                    serde_json::to_string(&ServerResponse::AuthSuccess).unwrap();
-                                let _ = write.send(Message::Text(response)).await;
-                            } else {
-                                info!("认证失败: {}", device_id);
-                                let response =
-                                    serde_json::to_string(&ServerResponse::AuthFailed).unwrap();
-                                let _ = write.send(Message::Text(response)).await;
-                            }
-                        }
-                        ClientMessage::Send {
-                            mode,
-                            content,
-                            method,
-                        } => {
-                        }
-                            if let Some(id) = &authenticated_device_name {
-                                if !state.is_trusted_simple(id) {
-                                     let response = serde_json::to_string(&ServerResponse::Revoked).unwrap();
-                                     let _ = write.send(Message::Text(response)).await;
-                                     break;
-                                }
-                                
-                                if is_paused.load(Ordering::Relaxed) {
-                                    continue;
-                                }
-
-                                let injection_method =
-                                    method.unwrap_or_else(|| "unicode".to_string());
-
-                                if mode == "realtime" {
-                                    if content.starts_with(&last_text) {
-                                        let diff = &content[last_text.len()..];
-                                        if !diff.is_empty() {
-                                            perform_injection(diff, &injection_method).await;
-                                        }
-                                        last_text = content;
-                                    } else if content.is_empty() {
-                                        last_text.clear();
-                                    } else {
-                                        last_text = content;
+                        match serde_json::from_str::<ClientMessage>(&text) {
+                            Ok(client_msg) => match client_msg {
+                                ClientMessage::Ping => {
+                                    let pong = serde_json::to_string(&ClientMessage::Pong).unwrap();
+                                    if let Err(e) = ws_write.send(Message::Text(pong)).await {
+                                        error!("发送 Pong 失败: {}", e);
+                                        break;
                                     }
-                                } else {
-                                    perform_injection(&content, &injection_method).await;
+                                }
+                                ClientMessage::Pong => {}
+                                ClientMessage::RequestPairing {
+                                    device_name,
+                                    device_id,
+                                    os: _,
+                                } => {
+                                    info!("配对请求: {} ({})", device_name, device_id);
+
+                                    let code = state.generate_pairing_code(&device_id);
+                                    let _ = app_handle.emit(
+                                        "status-changed",
+                                        StatusPayload {
+                                            text: format!("配对中: {}", device_name),
+                                        },
+                                    );
+
+                                    let _ = app_handle.emit(
+                                        "pairing-requested",
+                                        PairingPayload {
+                                            code: code.clone(),
+                                            device_name: device_name.clone(),
+                                        },
+                                    );
+
+                                    let response = serde_json::to_string(
+                                        &ServerResponse::PairingCodeRequired,
+                                    ).unwrap();
+                                    let _ = ws_write.send(Message::Text(response)).await;
+                                }
+                                ClientMessage::VerifyPairing {
+                                    device_id,
+                                    code,
+                                    device_name,
+                                    os,
+                                } => {
+                                    if let Some(token) = state.verify_pairing_code(&device_id, &code, &device_name, os.clone()) {
+                                        info!("配对成功: {}", device_name);
+                                        authenticated_device_name = Some(device_id.clone());
+                                        
+                                        if let Some(os_val) = os {
+                                            state.update_client_os(&device_id, &os_val);
+                                        }
+
+                                        state.active_connections.lock().unwrap().insert(device_id.clone(), tx.clone());
+
+                                        {
+                                            let mut active = state.active_sessions.lock().unwrap();
+                                            active.insert(device_id.clone(), addr.ip().to_string());
+                                        }
+                                        let _ = app_handle.emit("status-changed", StatusPayload {
+                                            text: format!("已连接: {}", device_name),
+                                        });
+                                        let _ = app_handle.emit("devices-changed", ());
+                                        let _ = app_handle.emit("pairing-success", ());
+
+                                        let response = serde_json::to_string(&ServerResponse::PairingSuccess { token }).unwrap();
+                                        let _ = ws_write.send(Message::Text(response)).await;
+                                    } else {
+                                        info!("配对失败: {}", device_name);
+                                        let response = serde_json::to_string(&ServerResponse::Error {
+                                            message: "Invalid code".into(),
+                                        }).unwrap();
+                                        let _ = ws_write.send(Message::Text(response)).await;
+                                    }
+                                }
+                                ClientMessage::Auth { device_id, token, os } => {
+                                    if state.is_trusted(&device_id, &token) {
+                                        info!("认证成功: {}", device_id);
+                                        authenticated_device_name = Some(device_id.clone());
+
+                                        if let Some(os_val) = os {
+                                            state.update_client_os(&device_id, &os_val);
+                                        }
+
+                                        state.active_connections.lock().unwrap().insert(device_id.clone(), tx.clone());
+
+                                        {
+                                            let mut active = state.active_sessions.lock().unwrap();
+                                            active.insert(device_id.clone(), addr.ip().to_string());
+                                        }
+                                        let _ = app_handle.emit("status-changed", StatusPayload {
+                                            text: format!("已连接: {}", device_id),
+                                        });
+                                        let _ = app_handle.emit("connection-changed", ConnectionPayload { count: 1 });
+
+                                        let response = serde_json::to_string(&ServerResponse::AuthSuccess).unwrap();
+                                        let _ = ws_write.send(Message::Text(response)).await;
+                                    } else {
+                                        info!("认证失败: {}", device_id);
+                                        let response = serde_json::to_string(&ServerResponse::AuthFailed).unwrap();
+                                        let _ = ws_write.send(Message::Text(response)).await;
+                                    }
+                                }
+                                ClientMessage::Unpair => {
+                                    if let Some(device_id) = &authenticated_device_name {
+                                        info!("客户端请求解除配对: {}", device_id);
+                                        let d_id = device_id.clone();
+                                        state.remove_device(&d_id);
+                                        let _ = app_handle.emit("devices-changed", ());
+                                        break; 
+                                    }
+                                }
+                                ClientMessage::Send { mode, content, method } => {
+                                    if authenticated_device_name.is_some() {
+                                        if is_paused.load(Ordering::Relaxed) { continue; }
+                                        let injection_method = method.unwrap_or_else(|| "unicode".to_string());
+                                        if mode == "realtime" {
+                                            if content.starts_with(&last_text) {
+                                                let diff = &content[last_text.len()..];
+                                                if !diff.is_empty() { perform_injection(diff, &injection_method).await; }
+                                                last_text = content;
+                                            } else if content.is_empty() {
+                                                last_text.clear();
+                                            } else {
+                                                last_text = content;
+                                            }
+                                        } else {
+                                            perform_injection(&content, &injection_method).await;
+                                            last_text.clear();
+                                        }
+                                    } else {
+                                        let response = serde_json::to_string(&ServerResponse::Error {
+                                            message: "Not authenticated".into(),
+                                        }).unwrap();
+                                        let _ = ws_write.send(Message::Text(response)).await;
+                                    }
+                                }
+                                ClientMessage::Reset => {
+                                    info!("状态重置");
                                     last_text.clear();
                                 }
-                            } else {
-                                let response = serde_json::to_string(&ServerResponse::Error {
-                                    message: "Not authenticated".into(),
-                                })
-                                .unwrap();
-                                let _ = write.send(Message::Text(response)).await;
-                            }
+                            },
+                            Err(e) => error!("JSON 解析错误: {}", e),
                         }
-                        ClientMessage::Reset => {
-                            info!("状态重置");
-                            last_text.clear();
-                        }
-                    },
-                    Err(e) => error!("JSON 解析错误: {}", e),
+                    }
+                    Message::Close(_) => break,
+                    _ => {}
+                }
+            },
+            
+            // 监听内部控制指令 (由后端命令触发，如删除设备)
+            ctrl_msg = rx.recv() => {
+                if let Some(ctrl_text) = ctrl_msg {
+                    if ctrl_text == "unpaired" {
+                        info!("收到内部指令: 解除配对，关闭连接");
+                        let response = serde_json::to_string(&ServerResponse::Unpaired).unwrap();
+                        let _ = ws_write.send(Message::Text(response)).await;
+                        break;
+                    }
+                } else {
+                    break;
                 }
             }
-            Ok(Message::Close(_)) => {
-                info!("连接关闭: {}", addr);
-                break;
-            }
-            Err(e) => {
-                error!("消息处理错误: {}", e);
-                break;
-            }
-            _ => {}
         }
     }
 
     if let Some(device_id) = authenticated_device_name {
-        let mut active = state.active_sessions.lock().unwrap();
-        active.remove(&device_id);
+        state.active_sessions.lock().unwrap().remove(&device_id);
+        state.active_connections.lock().unwrap().remove(&device_id);
     }
 
     let _ = app_handle.emit(
@@ -569,6 +560,7 @@ async fn accept_connection<S>(
         },
     );
     let _ = app_handle.emit("connection-changed", ConnectionPayload { count: 0 });
+    let _ = app_handle.emit("devices-changed", ());
 }
 
 // ====== 消息协议 ======
@@ -581,17 +573,18 @@ enum ClientMessage {
     RequestPairing {
         device_name: String,
         device_id: String,
+        os: Option<String>,
     },
     VerifyPairing {
         device_id: String,
         code: String,
         device_name: String,
-        device_os: Option<String>,
+        os: Option<String>,
     },
     Auth {
         device_id: String,
         token: String,
-        device_os: Option<String>,
+        os: Option<String>,
     },
     Send {
         mode: String,
@@ -599,6 +592,7 @@ enum ClientMessage {
         method: Option<String>,
     },
     Reset,
+    Unpair,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -609,7 +603,7 @@ enum ServerResponse {
     PairingSuccess { token: String },
     AuthSuccess,
     AuthFailed,
-    Revoked,
+    Unpaired,
     Error { message: String },
 }
 
