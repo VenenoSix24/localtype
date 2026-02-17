@@ -98,6 +98,7 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
   int _totalChars = 0;
   int _todayChars = 0;
   String _todayDateKey = '';
+  String _pageTransitionType = 'sharedAxisX';
 
   /// 配对对话框回调
   Function(String)? onPairingRequired;
@@ -122,6 +123,7 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
   int get todayChars => _todayChars;
   Color get seedColor => _seedColor;
   bool get useDynamicColor => _useDynamicColor;
+  String get pageTransitionType => _pageTransitionType;
 
   TypeBridgeProvider() {
     WidgetsBinding.instance.addObserver(this);
@@ -201,6 +203,10 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
     _totalChars = prefs.getInt('total_chars') ?? 0;
     _todayDateKey = _getTodayKey();
     _todayChars = prefs.getInt('today_chars_$_todayDateKey') ?? 0;
+
+    // Load Page Transition Preference
+    _pageTransitionType =
+        prefs.getString('page_transition_type') ?? 'sharedAxisX';
 
     // Load Paired Devices
     await _loadPairedDevices();
@@ -341,6 +347,13 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
     _injectionMethod = method;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('injection_method', method);
+    notifyListeners();
+  }
+
+  Future<void> setPageTransitionType(String type) async {
+    _pageTransitionType = type;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('page_transition_type', type);
     notifyListeners();
   }
 

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import '../providers/type_bridge_provider.dart';
 
 /// 统计看板 —— 字数统计与仪式感数据
@@ -96,7 +95,7 @@ class InsightsScreen extends StatelessWidget {
               )),
         ],
       ),
-    ).animate().fadeIn(duration: 500.ms).slideY(begin: -0.05);
+    );
   }
 
   Widget _buildTodayCard(TypeBridgeProvider provider, ThemeData theme) {
@@ -138,7 +137,7 @@ class InsightsScreen extends StatelessWidget {
           ],
         ),
       ),
-    ).animate().fadeIn(delay: 100.ms, duration: 400.ms).slideX(begin: -0.05);
+    );
   }
 
   Widget _buildMilestones(
@@ -155,9 +154,7 @@ class InsightsScreen extends StatelessWidget {
     return Wrap(
       spacing: 12,
       runSpacing: 12,
-      children: milestones.asMap().entries.map((entry) {
-        final index = entry.key;
-        final m = entry.value;
+      children: milestones.map((m) {
         final achieved = provider.totalChars >= m.threshold;
 
         return Container(
@@ -204,10 +201,7 @@ class InsightsScreen extends StatelessWidget {
               ),
             ],
           ),
-        ).animate().fadeIn(delay: (index * 80).ms, duration: 300.ms).scale(
-            begin: const Offset(0.9, 0.9),
-            end: const Offset(1, 1),
-            duration: 300.ms);
+        );
       }).toList(),
     );
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:animations/animations.dart';
 import 'package:provider/provider.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'providers/type_bridge_provider.dart';
@@ -86,6 +87,7 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
+  int _lastIndex = 0;
 
   static const List<Widget> _screens = <Widget>[
     BridgeScreen(),
@@ -95,17 +97,59 @@ class _MainScreenState extends State<MainScreen> {
   ];
 
   void _onItemTapped(int index) {
+    if (index == _selectedIndex) return;
     setState(() {
+      _lastIndex = _selectedIndex;
       _selectedIndex = index;
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final provider = Provider.of<TypeBridgeProvider>(context);
+    final isReverse = _selectedIndex < _lastIndex;
+
     return Scaffold(
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: _screens,
+      body: PageTransitionSwitcher(
+        duration: const Duration(milliseconds: 400),
+        reverse: isReverse,
+        transitionBuilder: (child, primaryAnimation, secondaryAnimation) {
+          switch (provider.pageTransitionType) {
+            case 'sharedAxisX':
+              return SharedAxisTransition(
+                animation: primaryAnimation,
+                secondaryAnimation: secondaryAnimation,
+                transitionType: SharedAxisTransitionType.horizontal,
+                child: child,
+              );
+            case 'sharedAxisY':
+              return SharedAxisTransition(
+                animation: primaryAnimation,
+                secondaryAnimation: secondaryAnimation,
+                transitionType: SharedAxisTransitionType.vertical,
+                child: child,
+              );
+            case 'sharedAxisZ':
+              return SharedAxisTransition(
+                animation: primaryAnimation,
+                secondaryAnimation: secondaryAnimation,
+                transitionType: SharedAxisTransitionType.scaled,
+                child: child,
+              );
+            case 'fadeThrough':
+              return FadeThroughTransition(
+                animation: primaryAnimation,
+                secondaryAnimation: secondaryAnimation,
+                child: child,
+              );
+            default:
+              return child;
+          }
+        },
+        child: KeyedSubtree(
+          key: ValueKey<int>(_selectedIndex),
+          child: _screens[_selectedIndex],
+        ),
       ),
       bottomNavigationBar: NavigationBar(
         onDestinationSelected: _onItemTapped,

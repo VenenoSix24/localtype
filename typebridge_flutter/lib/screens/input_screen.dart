@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import '../providers/type_bridge_provider.dart';
 
 /// 输入页 —— 文本输入 + 历史记录 + 快捷短语
@@ -60,7 +59,7 @@ class InputScreen extends StatelessWidget {
               },
               icon: const Icon(Icons.send_rounded),
               label: const Text('发送'),
-            ).animate().scale(delay: 100.ms, duration: 200.ms)
+            )
           : null,
     );
   }
@@ -71,9 +70,7 @@ class InputScreen extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.link_off_rounded,
-                  size: 64, color: theme.colorScheme.outline)
-              .animate()
-              .fadeIn(duration: 400.ms),
+              size: 64, color: theme.colorScheme.outline),
           const SizedBox(height: 16),
           Text('未连接',
               style: theme.textTheme.titleMedium

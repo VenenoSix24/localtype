@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import '../providers/type_bridge_provider.dart';
 
 /// 连接页 —— Connection Hub (v2)
@@ -145,9 +144,7 @@ class _BridgeScreenState extends State<BridgeScreen> {
                       '正在搜索...',
                       style: theme.textTheme.labelSmall
                           ?.copyWith(color: theme.colorScheme.primary),
-                    )
-                        .animate(onPlay: (c) => c.repeat(reverse: true))
-                        .fadeOut(duration: 1200.ms, curve: Curves.easeInOut),
+                    ),
                   const Spacer(),
                   IconButton(
                     iconSize: 20,
@@ -287,7 +284,7 @@ class _BridgeScreenState extends State<BridgeScreen> {
           ],
         ),
       ),
-    ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0);
+    );
   }
 
   Widget _buildStatusItem(
@@ -502,10 +499,7 @@ class _BridgeScreenState extends State<BridgeScreen> {
                   ),
                 ),
               ),
-            )
-                .animate()
-                .fadeIn(delay: (index * 50).ms)
-                .slideX(begin: 0.05, end: 0);
+            );
           },
           childCount: sortedItems.length,
         ),

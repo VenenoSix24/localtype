@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:animations/animations.dart';
 import 'package:provider/provider.dart';
 import '../providers/type_bridge_provider.dart';
 import '../theme/app_theme.dart';
@@ -21,6 +22,105 @@ class SettingsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // 连接管理
+          _buildSectionHeader(theme, '连接管理'),
+          const SizedBox(height: 8),
+          Card(
+            child: Column(
+              children: [
+                ListTile(
+                  leading: Icon(Icons.devices_rounded,
+                      color: theme.colorScheme.primary),
+                  title: const Text('设备名称'),
+                  subtitle: Text(
+                    provider.deviceName ?? '未知设备',
+                    style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                  ),
+                  trailing: const Icon(Icons.edit_outlined, size: 18),
+                  onTap: () => _showEditDeviceNameDialog(context, provider),
+                ),
+                const Divider(height: 1, indent: 16, endIndent: 16),
+                ListTile(
+                  leading: Icon(Icons.delete_outline_rounded,
+                      color: theme.colorScheme.error),
+                  title: Text(
+                    '清除配对信息',
+                    style: TextStyle(color: theme.colorScheme.error),
+                  ),
+                  subtitle: Text(
+                    '清除后需重新与电脑配对',
+                    style: TextStyle(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontSize: 13),
+                  ),
+                  onTap: () => _showClearPairingDialog(context, provider),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // 注入方式
+          _buildSectionHeader(theme, '注入方式'),
+          const SizedBox(height: 8),
+          Card(
+            child: RadioGroup<String>(
+              groupValue: provider.injectionMethod,
+              onChanged: (val) {
+                if (val != null) provider.setInjectionMethod(val);
+              },
+              child: Column(
+                children: [
+                  RadioListTile<String>(
+                    title: const Text('Unicode（推荐）'),
+                    subtitle: Text(
+                      '直接模拟键盘输入，不影响剪贴板',
+                      style: TextStyle(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontSize: 13),
+                    ),
+                    value: 'unicode',
+                  ),
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  RadioListTile<String>(
+                    title: Row(
+                      children: [
+                        const Text('剪贴板粘贴'),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.tertiaryContainer,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            '实验性',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.onTertiaryContainer,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    subtitle: Text(
+                      '通过 Ctrl+V / Cmd+V 粘贴\nmacOS 上可能不稳定',
+                      style: TextStyle(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontSize: 13),
+                    ),
+                    value: 'clipboard',
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
           // 外观
           _buildSectionHeader(theme, '外观'),
           const SizedBox(height: 8),
@@ -108,100 +208,20 @@ class SettingsScreen extends StatelessWidget {
 
           const SizedBox(height: 24),
 
-          // 注入方式
-          _buildSectionHeader(theme, '注入方式'),
+          // 页面动画
+          _buildSectionHeader(theme, '页面动画'),
           const SizedBox(height: 8),
           Card(
-            child: RadioGroup<String>(
-              groupValue: provider.injectionMethod,
-              onChanged: (val) {
-                if (val != null) provider.setInjectionMethod(val);
-              },
-              child: Column(
-                children: [
-                  RadioListTile<String>(
-                    title: const Text('Unicode（推荐）'),
-                    subtitle: Text(
-                      '直接模拟键盘输入，不影响剪贴板',
-                      style: TextStyle(
-                          color: theme.colorScheme.onSurfaceVariant,
-                          fontSize: 13),
-                    ),
-                    value: 'unicode',
-                  ),
-                  const Divider(height: 1, indent: 16, endIndent: 16),
-                  RadioListTile<String>(
-                    title: Row(
-                      children: [
-                        const Text('剪贴板粘贴'),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.tertiaryContainer,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            '实验性',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: theme.colorScheme.onTertiaryContainer,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    subtitle: Text(
-                      '通过 Ctrl+V / Cmd+V 粘贴\nmacOS 上可能不稳定',
-                      style: TextStyle(
-                          color: theme.colorScheme.onSurfaceVariant,
-                          fontSize: 13),
-                    ),
-                    value: 'clipboard',
-                  ),
-                ],
+            child: ListTile(
+              leading: Icon(Icons.animation_rounded,
+                  color: theme.colorScheme.primary),
+              title: const Text('过渡动画'),
+              subtitle: Text(
+                _getTransitionLabel(provider.pageTransitionType),
+                style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
               ),
-            ),
-          ),
-
-          const SizedBox(height: 24),
-
-          // 连接管理
-          _buildSectionHeader(theme, '连接管理'),
-          const SizedBox(height: 8),
-          Card(
-            child: Column(
-              children: [
-                ListTile(
-                  leading: Icon(Icons.devices_rounded,
-                      color: theme.colorScheme.primary),
-                  title: const Text('设备名称'),
-                  subtitle: Text(
-                    provider.deviceName ?? '未知设备',
-                    style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
-                  ),
-                  trailing: const Icon(Icons.edit_outlined, size: 18),
-                  onTap: () => _showEditDeviceNameDialog(context, provider),
-                ),
-                const Divider(height: 1, indent: 16, endIndent: 16),
-                ListTile(
-                  leading: Icon(Icons.delete_outline_rounded,
-                      color: theme.colorScheme.error),
-                  title: Text(
-                    '清除配对信息',
-                    style: TextStyle(color: theme.colorScheme.error),
-                  ),
-                  subtitle: Text(
-                    '清除后需重新与电脑配对',
-                    style: TextStyle(
-                        color: theme.colorScheme.onSurfaceVariant,
-                        fontSize: 13),
-                  ),
-                  onTap: () => _showClearPairingDialog(context, provider),
-                ),
-              ],
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => _showTransitionDialog(context, provider),
             ),
           ),
 
@@ -252,6 +272,58 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: 16),
         ],
       ),
+    );
+  }
+
+  String _getTransitionLabel(String type) {
+    switch (type) {
+      case 'sharedAxisX':
+        return '共享轴 X (平滑横移)';
+      case 'sharedAxisY':
+        return '共享轴 Y (垂直位移)';
+      case 'sharedAxisZ':
+        return '共享轴 Z (缩放渐变)';
+      case 'fadeThrough':
+        return '淡入淡出 (Fade Through)';
+      default:
+        return '无动画 (默认)';
+    }
+  }
+
+  void _showTransitionDialog(
+      BuildContext context, TypeBridgeProvider provider) {
+    showModal<void>(
+      context: context,
+      configuration: const FadeScaleTransitionConfiguration(),
+      builder: (ctx) => AlertDialog(
+        title: const Text('选择过渡动画'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildTransitionOption(ctx, provider, 'sharedAxisX', '共享轴 X'),
+            _buildTransitionOption(ctx, provider, 'sharedAxisY', '共享轴 Y'),
+            _buildTransitionOption(ctx, provider, 'sharedAxisZ', '共享轴 Z'),
+            _buildTransitionOption(ctx, provider, 'fadeThrough', '淡入淡出'),
+            _buildTransitionOption(ctx, provider, 'default', '无动画'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTransitionOption(BuildContext context,
+      TypeBridgeProvider provider, String value, String title) {
+    return RadioListTile<String>(
+      title: Text(title),
+      value: value,
+      groupValue: provider.pageTransitionType,
+      onChanged: (val) {
+        if (val != null) {
+          provider.setPageTransitionType(val);
+          Navigator.pop(context);
+        }
+      },
+      contentPadding: EdgeInsets.zero,
     );
   }
 
