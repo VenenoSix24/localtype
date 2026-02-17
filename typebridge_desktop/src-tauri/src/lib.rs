@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Emitter, Listener, Manager, WindowEvent,
+    AppHandle, Emitter, Manager, WindowEvent,
 };
 use tauri_plugin_autostart::MacosLauncher;
 use tokio::net::{TcpListener, UdpSocket};
@@ -112,7 +112,7 @@ fn get_devices(state: tauri::State<'_, ServerState>) -> Vec<DevicePayload> {
         .get_device_list()
         .into_iter()
         .map(|c| DevicePayload {
-            current_ip: active.get(&c.id).cloned(),
+            current_ip: active.get(&c.id).map(|(ip, _)| ip.clone()),
             id: c.id,
             name: c.name,
             alias: c.alias,
@@ -188,7 +188,7 @@ pub fn run() {
             let show_i = MenuItem::with_id(app, "show", "显示主界面", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
 
-            let tray = TrayIconBuilder::new()
+            let _tray = TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
                 .menu(&menu)
                 .show_menu_on_left_click(false)
@@ -363,12 +363,11 @@ async fn accept_connection<S>(
             text: format!("已连接: {}", addr.ip()),
         },
     );
-    let _ = app_handle.emit("connection-changed", ConnectionPayload { count: 1 });
-
     let (mut ws_write, mut ws_read) = ws_stream.split();
     let mut last_text = String::new();
     let mut authenticated_device_name: Option<String> = None;
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<String>();
+    let session_id = state.next_session_id();
 
     loop {
         tokio::select! {
@@ -435,15 +434,18 @@ async fn accept_connection<S>(
                                             state.update_client_os(&device_id, &os_val);
                                         }
 
+                                        state.kick_device(&device_id);
                                         state.active_connections.lock().unwrap().insert(device_id.clone(), tx.clone());
 
-                                        {
+                                        let active_count = {
                                             let mut active = state.active_sessions.lock().unwrap();
-                                            active.insert(device_id.clone(), addr.ip().to_string());
-                                        }
+                                            active.insert(device_id.clone(), (addr.ip().to_string(), session_id));
+                                            active.len() as i32
+                                        };
                                         let _ = app_handle.emit("status-changed", StatusPayload {
                                             text: format!("已连接: {}", device_name),
                                         });
+                                        let _ = app_handle.emit("connection-changed", ConnectionPayload { count: active_count });
                                         let _ = app_handle.emit("devices-changed", ());
                                         let _ = app_handle.emit("pairing-success", ());
 
@@ -466,16 +468,19 @@ async fn accept_connection<S>(
                                             state.update_client_os(&device_id, &os_val);
                                         }
 
+                                        state.kick_device(&device_id);
                                         state.active_connections.lock().unwrap().insert(device_id.clone(), tx.clone());
 
-                                        {
+                                        let active_count = {
                                             let mut active = state.active_sessions.lock().unwrap();
-                                            active.insert(device_id.clone(), addr.ip().to_string());
-                                        }
+                                            active.insert(device_id.clone(), (addr.ip().to_string(), session_id));
+                                            active.len() as i32
+                                        };
                                         let _ = app_handle.emit("status-changed", StatusPayload {
                                             text: format!("已连接: {}", device_id),
                                         });
-                                        let _ = app_handle.emit("connection-changed", ConnectionPayload { count: 1 });
+                                        let _ = app_handle.emit("connection-changed", ConnectionPayload { count: active_count });
+                                        let _ = app_handle.emit("devices-changed", ());
 
                                         let response = serde_json::to_string(&ServerResponse::AuthSuccess).unwrap();
                                         let _ = ws_write.send(Message::Text(response)).await;
@@ -548,10 +553,19 @@ async fn accept_connection<S>(
         }
     }
 
-    if let Some(device_id) = authenticated_device_name {
-        state.active_sessions.lock().unwrap().remove(&device_id);
-        state.active_connections.lock().unwrap().remove(&device_id);
-    }
+    let active_count = {
+        let mut active = state.active_sessions.lock().unwrap();
+        if let Some(did) = &authenticated_device_name {
+            if let Some((_, sid)) = active.get(did) {
+                if *sid == session_id {
+                    active.remove(did);
+                    state.active_connections.lock().unwrap().remove(did);
+                    info!("清理会话: {} (ID: {})", did, session_id);
+                }
+            }
+        }
+        active.len() as i32
+    };
 
     let _ = app_handle.emit(
         "status-changed",
@@ -559,7 +573,7 @@ async fn accept_connection<S>(
             text: "就绪".to_string(),
         },
     );
-    let _ = app_handle.emit("connection-changed", ConnectionPayload { count: 0 });
+    let _ = app_handle.emit("connection-changed", ConnectionPayload { count: active_count });
     let _ = app_handle.emit("devices-changed", ());
 }
 

@@ -10,6 +10,7 @@ use std::{
 use directories::ProjectDirs;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
+use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::sync::mpsc;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -42,8 +43,9 @@ pub struct ServerState {
     pub trusted_clients: Arc<Mutex<HashMap<String, TrustedClient>>>,
     pub config: Arc<Mutex<AppConfig>>,
     pub pending_pair_codes: Arc<Mutex<HashMap<String, (String, Instant)>>>,
-    pub active_sessions: Arc<Mutex<HashMap<String, String>>>, // device_id -> IP
+    pub active_sessions: Arc<Mutex<HashMap<String, (String, u64)>>>, // device_id -> (IP, session_id)
     pub active_connections: Arc<Mutex<HashMap<String, mpsc::UnboundedSender<String>>>>, // device_id -> sender
+    pub session_counter: Arc<AtomicU64>,
     devices_path: PathBuf,
     config_path: PathBuf,
 }
@@ -70,9 +72,14 @@ impl ServerState {
             pending_pair_codes: Arc::new(Mutex::new(HashMap::new())),
             active_sessions: Arc::new(Mutex::new(HashMap::new())),
             active_connections: Arc::new(Mutex::new(HashMap::new())),
+            session_counter: Arc::new(AtomicU64::new(0)),
             devices_path,
             config_path,
         }
+    }
+
+    pub fn next_session_id(&self) -> u64 {
+        self.session_counter.fetch_add(1, Ordering::SeqCst)
     }
 
     fn load_config(path: &PathBuf) -> Option<AppConfig> {

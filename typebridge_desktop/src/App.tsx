@@ -461,6 +461,7 @@ function AppLayout() {
       }),
       listen<any>("connection-changed", (e) => {
         setConnectedCount(e.payload.count);
+        fetchData();
         addLog(e.payload.count > 0 ? "新设备已建立 WebSocket 会话" : "会话已断开");
       }),
       listen<any>("pairing-requested", (e) => {

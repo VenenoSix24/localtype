@@ -88,7 +88,8 @@ class SettingsScreen extends StatelessWidget {
                       else
                         Icon(Icons.auto_awesome_rounded,
                             size: 20,
-                            color: theme.colorScheme.primary.withOpacity(0.5)),
+                            color: theme.colorScheme.primary
+                                .withValues(alpha: 0.5)),
                       const SizedBox(width: 8),
                       const Icon(Icons.chevron_right_rounded),
                     ],
@@ -181,6 +182,8 @@ class SettingsScreen extends StatelessWidget {
                     provider.deviceName ?? '未知设备',
                     style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
                   ),
+                  trailing: const Icon(Icons.edit_outlined, size: 18),
+                  onTap: () => _showEditDeviceNameDialog(context, provider),
                 ),
                 const Divider(height: 1, indent: 16, endIndent: 16),
                 ListTile(
@@ -287,13 +290,55 @@ class SettingsScreen extends StatelessWidget {
           FilledButton(
             onPressed: () {
               Navigator.pop(ctx);
-              provider.disconnect();
               provider.clearPairingData();
             },
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.error,
             ),
             child: const Text('确认清除'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 修改设备名称对话框
+  void _showEditDeviceNameDialog(
+      BuildContext context, TypeBridgeProvider provider) {
+    final controller = TextEditingController(text: provider.deviceName);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Text('修改设备名称'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: InputDecoration(
+            hintText: '请输入设备名称',
+            filled: true,
+            fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+          ),
+          maxLength: 20,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final newName = controller.text.trim();
+              if (newName.isNotEmpty) {
+                provider.setDeviceName(newName);
+                Navigator.pop(ctx);
+              }
+            },
+            child: const Text('保存'),
           ),
         ],
       ),

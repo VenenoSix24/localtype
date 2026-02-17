@@ -287,6 +287,13 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
     return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
   }
 
+  void setDeviceName(String name) async {
+    _deviceName = name;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('device_name', name);
+    notifyListeners();
+  }
+
   // ==================== Logs ====================
 
   void addLog(String log) {
@@ -599,10 +606,22 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> clearPairingData() async {
+    if (_status == ConnectionStatus.connected && _channel != null) {
+      try {
+        _channel!.sink.add(jsonEncode({'type': 'unpair'}));
+        addLog('已向服务端发送解除配对请求');
+      } catch (e) {
+        addLog('发送解除配对请求失败: $e');
+      }
+    }
+
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
     _authToken = null;
-    addLog('配对信息已清除');
+    addLog('本地配对信息已清除');
+    // 给异步发送留一点时间
+    await Future.delayed(const Duration(milliseconds: 300));
+    disconnect();
     notifyListeners();
   }
 
