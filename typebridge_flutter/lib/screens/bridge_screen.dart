@@ -120,19 +120,6 @@ class _BridgeScreenState extends State<BridgeScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('设备连接'),
-        actions: [
-          IconButton(
-            icon: provider.isScanning
-                ? SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: theme.colorScheme.primary))
-                : const Icon(Icons.refresh_rounded),
-            onPressed: _startScan,
-            tooltip: '重新扫描',
-          ),
-        ],
       ),
       body: CustomScrollView(
         slivers: [
@@ -152,7 +139,7 @@ class _BridgeScreenState extends State<BridgeScreen> {
                     style: theme.textTheme.titleMedium
                         ?.copyWith(fontWeight: FontWeight.bold),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: 8),
                   if (provider.isScanning)
                     Text(
                       '正在搜索...',
@@ -161,6 +148,21 @@ class _BridgeScreenState extends State<BridgeScreen> {
                     )
                         .animate(onPlay: (c) => c.repeat(reverse: true))
                         .fadeOut(duration: 1200.ms, curve: Curves.easeInOut),
+                  const Spacer(),
+                  IconButton(
+                    iconSize: 20,
+                    visualDensity: VisualDensity.compact,
+                    icon: provider.isScanning
+                        ? SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: theme.colorScheme.primary))
+                        : const Icon(Icons.refresh_rounded),
+                    onPressed: _startScan,
+                    tooltip: '重新扫描',
+                  ),
                 ],
               ),
             ),
@@ -369,141 +371,134 @@ class _BridgeScreenState extends State<BridgeScreen> {
             final isOnline = discovered.any((d) => d.ip == device.ip);
             final isSaved = paired.any((d) => d.ip == device.ip);
 
-            return Card(
-              elevation: 0,
-              clipBehavior: Clip.antiAlias,
-              margin: const EdgeInsets.only(bottom: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
-                side: isOnline
-                    ? BorderSide(
-                        color:
-                            theme.colorScheme.primary.withValues(alpha: 0.15),
-                        width: 1.5)
-                    : BorderSide(
-                        color: theme.colorScheme.outlineVariant
-                            .withValues(alpha: 0.1),
-                        width: 1),
-              ),
-              child: InkWell(
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  provider.connect(device.ip);
-                },
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      // Leading Icon Container
-                      Container(
-                        width: 56,
-                        height: 56,
-                        decoration: BoxDecoration(
-                          color: isOnline
-                              ? theme.colorScheme.primaryContainer
-                                  .withValues(alpha: 0.7)
-                              : theme.colorScheme.surfaceContainerHighest
-                                  .withValues(alpha: 0.5),
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                        child: Icon(
-                          Icons.desktop_windows_rounded,
-                          color: isOnline
-                              ? theme.colorScheme.primary
-                              : theme.colorScheme.onSurfaceVariant,
-                          size: 28,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      // Info Section
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    device.name,
-                                    style:
-                                        theme.textTheme.titleMedium?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: -0.2,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                if (isOnline) ...[
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    width: 8,
-                                    height: 8,
-                                    decoration: const BoxDecoration(
-                                      color: Colors.green,
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Wrap(
-                              spacing: 6,
-                              runSpacing: 4,
-                              children: [
-                                _buildTag(
-                                    theme,
-                                    device.ip,
-                                    theme.colorScheme.onSurfaceVariant
-                                        .withValues(alpha: 0.6)),
-                                if (device.os != null && device.os!.isNotEmpty)
-                                  _buildTag(
-                                      theme,
-                                      device.os!.toUpperCase(),
-                                      theme.colorScheme.primary
-                                          .withValues(alpha: 0.8)),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      // Trailing section
-                      Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.center,
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainer,
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(
+                    color:
+                        theme.colorScheme.outlineVariant.withValues(alpha: 0.2),
+                  ),
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(28),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      provider.connect(device.ip);
+                    },
+                    borderRadius: BorderRadius.circular(28),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
                         children: [
-                          SizedBox(
-                            width: 44,
-                            height: 44,
-                            child: IconButton(
-                              icon: Icon(
-                                isSaved
-                                    ? Icons.star_rounded
-                                    : Icons.star_outline_rounded,
-                                color: isSaved
-                                    ? Colors.orange
-                                    : theme.colorScheme.outline,
-                                size: 24,
-                              ),
-                              onPressed: () {
-                                provider.toggleFavorite(
-                                    device.ip, device.name, device.os ?? '');
-                              },
-                              visualDensity: VisualDensity.compact,
-                              padding: EdgeInsets.zero,
+                          // Leading Icon Container
+                          Container(
+                            width: 56,
+                            height: 56,
+                            decoration: BoxDecoration(
+                              color: isOnline
+                                  ? theme.colorScheme.primaryContainer
+                                      .withValues(alpha: 0.7)
+                                  : theme.colorScheme.surfaceContainerHighest
+                                      .withValues(alpha: 0.5),
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                            child: Icon(
+                              Icons.desktop_windows_rounded,
+                              color: isOnline
+                                  ? theme.colorScheme.primary
+                                  : theme.colorScheme.onSurfaceVariant,
+                              size: 28,
                             ),
                           ),
-                          if (provider.connectedIp == device.ip &&
-                              provider.status == ConnectionStatus.connected)
-                            const SizedBox(
-                              width: 44,
-                              child: Icon(Icons.link_rounded,
-                                  color: Colors.green, size: 20),
+                          const SizedBox(width: 16),
+                          // Info Section
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        device.name,
+                                        style: theme.textTheme.titleMedium
+                                            ?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: -0.2,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    if (isOnline) ...[
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        width: 8,
+                                        height: 8,
+                                        decoration: const BoxDecoration(
+                                          color: Colors.green,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 4,
+                                  children: [
+                                    _buildTag(
+                                        theme,
+                                        device.ip,
+                                        theme.colorScheme.onSurfaceVariant
+                                            .withValues(alpha: 0.6)),
+                                    if (device.os != null &&
+                                        device.os!.isNotEmpty)
+                                      _buildTag(
+                                          theme,
+                                          device.os!.toUpperCase(),
+                                          theme.colorScheme.primary
+                                              .withValues(alpha: 0.8)),
+                                  ],
+                                ),
+                              ],
                             ),
+                          ),
+                          // Trailing section
+                          Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              IconButton(
+                                icon: Icon(
+                                  isSaved
+                                      ? Icons.star_rounded
+                                      : Icons.star_outline_rounded,
+                                  color: isSaved
+                                      ? Colors.orange
+                                      : theme.colorScheme.outline,
+                                  size: 24,
+                                ),
+                                onPressed: () {
+                                  provider.toggleFavorite(
+                                      device.ip, device.name, device.os ?? '');
+                                },
+                              ),
+                              if (provider.connectedIp == device.ip &&
+                                  provider.status == ConnectionStatus.connected)
+                                const Icon(Icons.link_rounded,
+                                    color: Colors.green, size: 20),
+                            ],
+                          ),
                         ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),

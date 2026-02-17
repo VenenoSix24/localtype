@@ -214,11 +214,8 @@ class SettingsScreen extends StatelessWidget {
             child: Column(
               children: [
                 ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: theme.colorScheme.primaryContainer,
-                    child: Icon(Icons.keyboard_alt_rounded,
-                        color: theme.colorScheme.primary, size: 20),
-                  ),
+                  leading: const Icon(Icons.info_outline_rounded),
+                  iconColor: theme.colorScheme.onSurfaceVariant,
                   title: const Text('TypeBridge'),
                   subtitle: Text(
                     'v1.1.0',
@@ -227,8 +224,8 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 const Divider(height: 1, indent: 16, endIndent: 16),
                 ListTile(
-                  leading: Icon(Icons.code_rounded,
-                      color: theme.colorScheme.onSurfaceVariant),
+                  leading: const Icon(Icons.code_rounded),
+                  iconColor: theme.colorScheme.onSurfaceVariant,
                   title: const Text('源代码'),
                   subtitle: Text(
                     'GitHub 仓库',

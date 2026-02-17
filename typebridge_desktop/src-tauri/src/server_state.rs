@@ -187,15 +187,23 @@ impl ServerState {
         drop(clients);
         let _ = self.save_trusted_clients();
         
-        // 同时也尝试断开活跃连接
-        self.kick_device(device_id);
+        // 同时也尝试断开活跃连接并正式通知解除配对
+        self.unpair_device(device_id);
     }
 
     /// 断开特定设备的连接并发送解除配对通知
-    pub fn kick_device(&self, device_id: &str) {
+    pub fn unpair_device(&self, device_id: &str) {
         let mut connections = self.active_connections.lock().unwrap();
         if let Some(tx) = connections.remove(device_id) {
             let _ = tx.send("unpaired".to_string());
+        }
+    }
+
+    /// 仅断开旧连接（重连场景）
+    pub fn kick_device(&self, device_id: &str) {
+        let mut connections = self.active_connections.lock().unwrap();
+        if let Some(tx) = connections.remove(device_id) {
+            let _ = tx.send("kick".to_string());
         }
     }
 

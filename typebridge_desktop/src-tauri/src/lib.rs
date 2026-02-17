@@ -545,6 +545,9 @@ async fn accept_connection<S>(
                         let response = serde_json::to_string(&ServerResponse::Unpaired).unwrap();
                         let _ = ws_write.send(Message::Text(response)).await;
                         break;
+                    } else if ctrl_text == "kick" {
+                        info!("收到内部指令: 踢出旧会话，保留配对信息");
+                        break; // 直接断开连接，不发送 Unpaired 消息
                     }
                 } else {
                     break;

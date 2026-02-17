@@ -85,6 +85,7 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   // --- V1.1 已配对设备 ---
   List<DiscoveredDevice> _pairedDevices = [];
+  bool _isInitialized = false;
 
   // --- V1.1 历史记录 ---
   List<String> _sendHistory = [];
@@ -143,8 +144,10 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      if (!_isInitialized) return; // Wait for initial load
       addLog('应用回到前台，检查连接状态...');
-      if (_lastConnectedIp != null && _status != ConnectionStatus.connected) {
+      if (_lastConnectedIp != null &&
+          _status == ConnectionStatus.disconnected) {
         addLog('检测到断开，正在重连...');
         _reconnectAttempts = 0;
         connect(_lastConnectedIp!);
@@ -202,6 +205,7 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
     // Load Paired Devices
     await _loadPairedDevices();
 
+    _isInitialized = true;
     notifyListeners();
   }
 
@@ -432,6 +436,19 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> connect(String ip) async {
     if (ip.isEmpty) {
       addLog('请输入 IP 地址');
+      return;
+    }
+
+    if (!_isInitialized) {
+      addLog('正在加载配置，请稍候...');
+      return;
+    }
+
+    // 防止重复连接或正在连接中
+    if (_status == ConnectionStatus.connected && _lastConnectedIp == ip) {
+      return;
+    }
+    if (_status == ConnectionStatus.connecting) {
       return;
     }
 
