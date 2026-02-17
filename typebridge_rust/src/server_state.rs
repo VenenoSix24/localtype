@@ -28,7 +28,7 @@ pub struct ServerState {
 
 impl ServerState {
     pub fn new() -> Self {
-        let proj_dirs = ProjectDirs::from("com", "example", "typebridge")
+        let proj_dirs = ProjectDirs::from("com", "localtype", "rustserver")
             .expect("Could not determine config directory");
         let config_dir = proj_dirs.config_dir();
         fs::create_dir_all(config_dir).ok();

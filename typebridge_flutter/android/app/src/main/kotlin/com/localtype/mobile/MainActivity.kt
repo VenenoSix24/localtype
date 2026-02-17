@@ -1,4 +1,4 @@
-package com.example.typebridge.typebridge_flutter
+package com.localtype.mobile
 
 import io.flutter.embedding.android.FlutterActivity
 

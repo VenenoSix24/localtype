@@ -1,4 +1,4 @@
-// TypeBridge 控制中心 - Tauri v2 后端
+// LocalType 控制中心 - Tauri v2 后端
 // NOTE: 所有核心网络逻辑（WSS、UDP、TLS）在 Tauri setup 钩子中启动，
 // 通过 AppHandle.emit() 向前端推送状态更新。
 
@@ -290,7 +290,7 @@ pub fn run() {
             Ok(())
         })
         .run(tauri::generate_context!())
-        .expect("TypeBridge 启动失败");
+        .expect("LocalType 启动失败");
 }
 
 // ====== 网络服务 ======
@@ -307,7 +307,7 @@ async fn run_discovery_service(state: ServerState) -> std::io::Result<()> {
         let msg = String::from_utf8_lossy(&buf[..len]);
         debug!("收到 UDP 广播 from {}: {}", addr, msg);
 
-        if msg.trim() == "typebridge_discovery" {
+        if msg.trim() == "localtype_discovery" {
             let local_ip = local_ip_address::local_ip().unwrap_or("127.0.0.1".parse().unwrap());
             let device_name = {
                 let config = state.config.lock().unwrap();
@@ -315,8 +315,8 @@ async fn run_discovery_service(state: ServerState) -> std::io::Result<()> {
             };
             let os_name = std::env::consts::OS;
             
-            // Format: typebridge_server:[IP]|[NAME]|[OS]
-            let response = format!("typebridge_server:{}|{}|{}", local_ip, device_name, os_name);
+            // Format: localtype_server:[IP]|[NAME]|[OS]
+            let response = format!("localtype_server:{}|{}|{}", local_ip, device_name, os_name);
             socket.send_to(response.as_bytes(), addr).await?;
             info!("已响应发现请求 from {}: {} (OS: {})", addr, device_name, os_name);
         }

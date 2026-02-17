@@ -83,7 +83,7 @@ function Dashboard({ serverInfo, connectedCount, pairing, setPairing, pairingSuc
       <div className="flex items-center justify-between mb-10">
         <div>
           <h1 className="text-4xl font-black font-heading tracking-tighter text-text-primary">运行状态</h1>
-          <p className="text-text-secondary text-base">TypeBridge 服务正在后台运行</p>
+          <p className="text-text-secondary text-base">LocalType 服务正在后台运行</p>
         </div>
         <div className={`flex items-center gap-3 px-5 py-2 rounded-2xl bg-bg-card border border-border-subtle shadow-sm`}>
           <div className={`w-2.5 h-2.5 rounded-full ${connectedCount > 0 ? 'bg-accent-green animate-pulse shadow-[0_0_12px_rgba(34,197,94,0.6)]' : 'bg-text-muted'}`} />
@@ -384,7 +384,7 @@ function SettingsPage({ onRefresh }: { onRefresh: () => void }) {
       </div>
 
       <div className="text-center mt-auto">
-        <p className="text-[10px] text-text-muted font-mono tracking-widest uppercase">TypeBridge v1.1.0 (Vision OS)</p>
+        <p className="text-[10px] text-text-muted font-mono tracking-widest uppercase">LocalType v1.2.1</p>
       </div>
     </div>
   )

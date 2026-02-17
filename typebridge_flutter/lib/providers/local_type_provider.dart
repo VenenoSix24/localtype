@@ -73,14 +73,15 @@ class MessageModel {
   });
 }
 
-/// TypeBridge 核心状态管理
-class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
+/// LocalType 核心状态管理
+class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
   WebSocketChannel? _channel;
   ConnectionStatus _status = ConnectionStatus.disconnected;
   AuthStatus _authStatus = AuthStatus.unauthenticated;
   final List<String> _logs = [];
   final TextEditingController ipController = TextEditingController();
   final TextEditingController textController = TextEditingController();
+  HttpClient? _client;
 
   bool _isDarkMode = false;
   bool _useDynamicColor = false;
@@ -149,7 +150,7 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
   String get bubbleColorType => _bubbleColorType;
   List<MessageModel> get messages => List.unmodifiable(_messages);
 
-  TypeBridgeProvider() {
+  LocalTypeProvider() {
     WidgetsBinding.instance.addObserver(this);
     _init();
   }
@@ -164,6 +165,7 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
     _channel?.sink.close();
     ipController.dispose();
     textController.dispose();
+    _client?.close();
     super.dispose();
   }
 
@@ -410,7 +412,7 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
     try {
       RawDatagramSocket.bind(InternetAddress.anyIPv4, 0).then((socket) {
         socket.broadcastEnabled = true;
-        final data = utf8.encode('typebridge_discovery');
+        final data = utf8.encode('localtype_discovery');
         socket.send(data, InternetAddress('255.255.255.255'), 45678);
 
         socket.listen((RawSocketEvent e) {
@@ -418,13 +420,13 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
           if (d == null) return;
 
           String message = utf8.decode(d.data).trim();
-          if (message.startsWith('typebridge_server:')) {
-            final content = message.substring('typebridge_server:'.length);
+          if (message.startsWith('localtype_server:')) {
+            final content = message.substring('localtype_server:'.length);
             final parts = content.split('|');
             if (parts.isNotEmpty) {
               final ip = parts[0];
               final serverName =
-                  parts.length > 1 ? parts[1] : 'TypeBridge Server';
+                  parts.length > 1 ? parts[1] : 'LocalType Server';
               final osName = parts.length > 2 ? parts[2] : 'desktop';
 
               if (!_discoveredDevices.any((dev) => dev.ip == ip)) {
@@ -500,13 +502,17 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
     addLog('正在连接 wss://$ip:8765...');
 
     try {
-      final HttpClient client = HttpClient()
+      // 懒加载并复用 HttpClient，避免频繁创建导致 fd 泄露
+      _client ??= HttpClient()
         ..badCertificateCallback =
             ((X509Certificate cert, String host, int port) => true)
         ..connectionTimeout = const Duration(seconds: 10);
 
+      // 确保之前的连接已关闭
+      _channel?.sink.close();
+
       final webSocket =
-          await WebSocket.connect('wss://$ip:8765', customClient: client);
+          await WebSocket.connect('wss://$ip:8765', customClient: _client);
       _channel = IOWebSocketChannel(webSocket);
 
       _status = ConnectionStatus.connected;

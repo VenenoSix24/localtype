@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/type_bridge_provider.dart';
+import '../providers/local_type_provider.dart';
 import '../theme/app_theme.dart';
 
 /// 主题选择二级页面
@@ -9,7 +9,7 @@ class ThemeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<TypeBridgeProvider>(context);
+    final provider = Provider.of<LocalTypeProvider>(context);
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -43,7 +43,7 @@ class ThemeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDynamicColorCard(TypeBridgeProvider provider, ThemeData theme) {
+  Widget _buildDynamicColorCard(LocalTypeProvider provider, ThemeData theme) {
     return Card(
       child: SwitchListTile(
         secondary:
@@ -88,7 +88,7 @@ class ThemeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildThemeGrid(TypeBridgeProvider provider, ThemeData theme) {
+  Widget _buildThemeGrid(LocalTypeProvider provider, ThemeData theme) {
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),

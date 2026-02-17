@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/type_bridge_provider.dart';
+import '../providers/local_type_provider.dart';
 
 class PhraseManagementScreen extends StatefulWidget {
   const PhraseManagementScreen({super.key});
@@ -32,7 +32,7 @@ class _PhraseManagementScreenState extends State<PhraseManagementScreen> {
     });
   }
 
-  Future<void> _deleteSelected(TypeBridgeProvider provider) async {
+  Future<void> _deleteSelected(LocalTypeProvider provider) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -60,7 +60,7 @@ class _PhraseManagementScreenState extends State<PhraseManagementScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<TypeBridgeProvider>(context);
+    final provider = Provider.of<LocalTypeProvider>(context);
     final theme = Theme.of(context);
     final phrases = provider.quickPhrases;
 
@@ -166,7 +166,7 @@ class _PhraseManagementScreenState extends State<PhraseManagementScreen> {
     );
   }
 
-  void _showAddEditDialog(BuildContext context, TypeBridgeProvider provider,
+  void _showAddEditDialog(BuildContext context, LocalTypeProvider provider,
       {QuickPhrase? phrase}) {
     final isEdit = phrase != null;
     final labelController = TextEditingController(text: phrase?.label);

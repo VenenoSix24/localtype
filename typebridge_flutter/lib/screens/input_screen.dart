@@ -1,8 +1,7 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../providers/type_bridge_provider.dart';
+import '../providers/local_type_provider.dart';
 
 /// 键盘页面 (聊天流模式)
 /// V1.2.1: 细节优化与交互增强
@@ -24,7 +23,7 @@ class _InputScreenState extends State<InputScreen> {
   @override
   void initState() {
     super.initState();
-    _lastMessageCount = context.read<TypeBridgeProvider>().messages.length;
+    _lastMessageCount = context.read<LocalTypeProvider>().messages.length;
   }
 
   @override
@@ -54,7 +53,7 @@ class _InputScreenState extends State<InputScreen> {
   }
 
   void _handleBatchAction(
-      String action, TypeBridgeProvider provider, ThemeData theme) {
+      String action, LocalTypeProvider provider, ThemeData theme) {
     final selectedMessages =
         provider.messages.where((m) => _selectedIds.contains(m.id)).toList();
 
@@ -108,7 +107,7 @@ class _InputScreenState extends State<InputScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<TypeBridgeProvider>(context);
+    final provider = Provider.of<LocalTypeProvider>(context);
     final theme = Theme.of(context);
     final isConnected = provider.status == ConnectionStatus.connected &&
         provider.authStatus == AuthStatus.authenticated;
@@ -149,7 +148,7 @@ class _InputScreenState extends State<InputScreen> {
                       controller: _scrollController,
                       reverse: true,
                       padding: const EdgeInsets.fromLTRB(
-                          16, 20, 16, 110), // 底部留出足够空间给悬浮输入框
+                          16, 20, 16, 80), // 缩短底部留白，使气泡更靠近输入框
                       initialItemCount: provider.messages.length,
                       itemBuilder: (context, index, animation) {
                         if (index >= provider.messages.length) {
@@ -176,7 +175,7 @@ class _InputScreenState extends State<InputScreen> {
   }
 
   PreferredSizeWidget _buildAppBar(
-      BuildContext context, TypeBridgeProvider provider, ThemeData theme) {
+      BuildContext context, LocalTypeProvider provider, ThemeData theme) {
     return PreferredSize(
       preferredSize: const Size.fromHeight(kToolbarHeight),
       child: AnimatedSwitcher(
@@ -224,7 +223,7 @@ class _InputScreenState extends State<InputScreen> {
                 title: Column(
                   children: [
                     Text(
-                      provider.remoteServerName ?? 'TypeBridge',
+                      provider.remoteServerName ?? 'LocalType',
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
@@ -298,7 +297,7 @@ class _InputScreenState extends State<InputScreen> {
       BuildContext context,
       MessageModel message,
       ThemeData theme,
-      TypeBridgeProvider provider,
+      LocalTypeProvider provider,
       Animation<double> animation) {
     final curvedAnimation = CurvedAnimation(
       parent: animation,
@@ -338,9 +337,9 @@ class _InputScreenState extends State<InputScreen> {
   }
 
   Widget _buildInputSection(
-      BuildContext context, TypeBridgeProvider provider, ThemeData theme) {
+      BuildContext context, LocalTypeProvider provider, ThemeData theme) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12), // 缩短底部距离，从 20 减为 12
+      padding: const EdgeInsets.all(16), // 上下左右边距统一为 16px
       color: Colors.transparent,
       child: SafeArea(
         child: Column(
@@ -486,7 +485,7 @@ class _InputScreenState extends State<InputScreen> {
   }
 
   Widget _buildPhraseMenu(
-      BuildContext context, TypeBridgeProvider provider, ThemeData theme) {
+      BuildContext context, LocalTypeProvider provider, ThemeData theme) {
     if (provider.quickPhrases.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(16),
@@ -598,7 +597,7 @@ class _InputScreenState extends State<InputScreen> {
     );
   }
 
-  void _showFullscreenInput(BuildContext context, TypeBridgeProvider provider) {
+  void _showFullscreenInput(BuildContext context, LocalTypeProvider provider) {
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
@@ -637,7 +636,7 @@ class _InputScreenState extends State<InputScreen> {
     );
   }
 
-  void _showAddPhraseDialog(BuildContext context, TypeBridgeProvider provider) {
+  void _showAddPhraseDialog(BuildContext context, LocalTypeProvider provider) {
     final labelCtrl = TextEditingController();
     final contentCtrl = TextEditingController();
 
@@ -696,7 +695,7 @@ class _InputScreenState extends State<InputScreen> {
   }
 
   void _showPhraseOptions(
-      BuildContext context, TypeBridgeProvider provider, QuickPhrase phrase) {
+      BuildContext context, LocalTypeProvider provider, QuickPhrase phrase) {
     showModalBottomSheet(
       context: context,
       showDragHandle: true,
@@ -732,7 +731,7 @@ class _InputScreenState extends State<InputScreen> {
   }
 
   void _showEditPhraseDialog(
-      BuildContext context, TypeBridgeProvider provider, QuickPhrase phrase) {
+      BuildContext context, LocalTypeProvider provider, QuickPhrase phrase) {
     final labelCtrl = TextEditingController(text: phrase.label);
     final contentCtrl = TextEditingController(text: phrase.content);
 
@@ -791,7 +790,7 @@ class _InputScreenState extends State<InputScreen> {
   }
 
   void _showDeletePhraseDialog(
-      BuildContext context, TypeBridgeProvider provider, QuickPhrase phrase) {
+      BuildContext context, LocalTypeProvider provider, QuickPhrase phrase) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -832,7 +831,7 @@ class _InputScreenState extends State<InputScreen> {
         minChildSize: 0.3,
         maxChildSize: 0.85,
         expand: false,
-        builder: (context, scrollController) => Consumer<TypeBridgeProvider>(
+        builder: (context, scrollController) => Consumer<LocalTypeProvider>(
           builder: (context, provider, child) => Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Column(
@@ -884,7 +883,7 @@ class _InputScreenState extends State<InputScreen> {
 /// 独立的聊天气泡组件，处理选择模式和交互
 class _ChatBubble extends StatefulWidget {
   final MessageModel message;
-  final TypeBridgeProvider provider;
+  final LocalTypeProvider provider;
   final bool isSelected;
   final bool isSelectionMode;
   final VoidCallback onTap;

@@ -33,7 +33,7 @@ impl Default for AppConfig {
         Self {
             device_name: hostname::get()
                 .map(|h| h.to_string_lossy().into_owned())
-                .unwrap_or_else(|_| "TypeBridge Desktop".to_string()),
+                .unwrap_or_else(|_| "LocalType Desktop".to_string()),
         }
     }
 }
@@ -52,7 +52,7 @@ pub struct ServerState {
 
 impl ServerState {
     pub fn new() -> Self {
-        let proj_dirs = ProjectDirs::from("com", "typebridge", "desktop")
+        let proj_dirs = ProjectDirs::from("com", "localtype", "desktop")
             .expect("Could not determine config directory");
         let config_dir = proj_dirs.config_dir();
         fs::create_dir_all(config_dir).ok();

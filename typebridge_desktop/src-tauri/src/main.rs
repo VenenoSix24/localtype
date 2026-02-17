@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    typebridge_desktop_lib::run()
+    localtype_desktop_lib::run()
 }

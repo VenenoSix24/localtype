@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:animations/animations.dart';
 import 'package:provider/provider.dart';
 import 'package:dynamic_color/dynamic_color.dart';
-import 'providers/type_bridge_provider.dart';
-import 'screens/bridge_screen.dart';
+import 'providers/local_type_provider.dart';
+import 'screens/connection_screen.dart';
 import 'screens/input_screen.dart';
 import 'screens/insights_screen.dart';
 import 'screens/settings_screen.dart';
@@ -14,19 +14,19 @@ void main() {
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => TypeBridgeProvider()),
+        ChangeNotifierProvider(create: (_) => LocalTypeProvider()),
       ],
-      child: const TypeBridgeApp(),
+      child: const LocalTypeApp(),
     ),
   );
 }
 
-class TypeBridgeApp extends StatelessWidget {
-  const TypeBridgeApp({super.key});
+class LocalTypeApp extends StatelessWidget {
+  const LocalTypeApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<TypeBridgeProvider>(
+    return Consumer<LocalTypeProvider>(
       builder: (context, provider, child) {
         return DynamicColorBuilder(
           builder: (lightDynamic, darkDynamic) {
@@ -57,7 +57,7 @@ class TypeBridgeApp extends StatelessWidget {
             }
 
             return MaterialApp(
-              title: 'TypeBridge',
+              title: provider.remoteServerName ?? 'LocalType',
               debugShowCheckedModeBanner: false,
               theme: AppTheme.lightTheme(
                 seedColor: provider.seedColor,
@@ -90,7 +90,7 @@ class _MainScreenState extends State<MainScreen> {
   int _lastIndex = 0;
 
   static const List<Widget> _screens = <Widget>[
-    BridgeScreen(),
+    ConnectionScreen(),
     InputScreen(),
     InsightsScreen(),
     SettingsScreen(),
@@ -106,7 +106,7 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<TypeBridgeProvider>(context);
+    final provider = Provider.of<LocalTypeProvider>(context);
     final isReverse = _selectedIndex < _lastIndex;
 
     return Scaffold(

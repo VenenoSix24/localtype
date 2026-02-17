@@ -1389,6 +1389,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "localtype_rust"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "arboard",
+ "directories",
+ "enigo",
+ "env_logger",
+ "futures-util",
+ "local-ip-address",
+ "log",
+ "native-dialog",
+ "rand",
+ "rcgen",
+ "rustls-pemfile",
+ "serde",
+ "serde_json",
+ "tao",
+ "tokio",
+ "tokio-rustls",
+ "tokio-tungstenite",
+ "tray-icon",
+ "windows 0.52.0",
+]
+
+[[package]]
 name = "lock_api"
 version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2678,32 +2704,6 @@ dependencies = [
  "thiserror 1.0.69",
  "url",
  "utf-8",
-]
-
-[[package]]
-name = "typebridge_rust"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "arboard",
- "directories",
- "enigo",
- "env_logger",
- "futures-util",
- "local-ip-address",
- "log",
- "native-dialog",
- "rand",
- "rcgen",
- "rustls-pemfile",
- "serde",
- "serde_json",
- "tao",
- "tokio",
- "tokio-rustls",
- "tokio-tungstenite",
- "tray-icon",
- "windows 0.52.0",
 ]
 
 [[package]]

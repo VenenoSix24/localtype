@@ -1,4 +1,4 @@
-# typebridge_flutter
+# LocalType Mobile
 
 A new Flutter project.
 

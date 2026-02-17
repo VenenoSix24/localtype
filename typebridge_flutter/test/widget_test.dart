@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
-import 'package:typebridge_flutter/providers/type_bridge_provider.dart';
+import 'package:localtype/providers/local_type_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:typebridge_flutter/main.dart';
+import 'package:localtype/main.dart';
 
 void main() {
   testWidgets('App smoke test', (WidgetTester tester) async {
@@ -11,9 +11,9 @@ void main() {
     await tester.pumpWidget(
       MultiProvider(
         providers: [
-          ChangeNotifierProvider(create: (_) => TypeBridgeProvider()),
+          ChangeNotifierProvider(create: (_) => LocalTypeProvider()),
         ],
-        child: const TypeBridgeApp(),
+        child: const LocalTypeApp(),
       ),
     );
     await tester.pumpAndSettle();

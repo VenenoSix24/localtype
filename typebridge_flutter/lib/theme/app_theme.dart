@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// TypeBridge 主题系统
+/// LocalType 主题系统
 /// 基于 MD3 动态色彩方案，使用蓝色系 seed color
 class AppTheme {
   // Predefined theme colors for MD3 (Bilibili-style rich palette)

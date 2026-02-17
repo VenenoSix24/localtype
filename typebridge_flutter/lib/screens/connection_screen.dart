@@ -1,24 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../providers/type_bridge_provider.dart';
+import '../providers/local_type_provider.dart';
 
 /// 连接页 —— Connection Hub (v2)
 /// Top: Status Panel
 /// Bottom: Nearby & Saved Devices (Card Style)
-class BridgeScreen extends StatefulWidget {
-  const BridgeScreen({super.key});
+class ConnectionScreen extends StatefulWidget {
+  const ConnectionScreen({super.key});
 
   @override
-  State<BridgeScreen> createState() => _BridgeScreenState();
+  State<ConnectionScreen> createState() => _ConnectionScreenState();
 }
 
-class _BridgeScreenState extends State<BridgeScreen> {
+class _ConnectionScreenState extends State<ConnectionScreen> {
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final provider = Provider.of<TypeBridgeProvider>(context, listen: false);
+      final provider = Provider.of<LocalTypeProvider>(context, listen: false);
       provider.onPairingRequired = (msg) {
         _showPairingDialog(context);
       };
@@ -28,7 +28,7 @@ class _BridgeScreenState extends State<BridgeScreen> {
   }
 
   void _startScan() {
-    final provider = Provider.of<TypeBridgeProvider>(context, listen: false);
+    final provider = Provider.of<LocalTypeProvider>(context, listen: false);
     if (!provider.isScanning) {
       provider.startDeviceDiscovery();
     }
@@ -87,7 +87,7 @@ class _BridgeScreenState extends State<BridgeScreen> {
             TextButton(
               onPressed: () {
                 Navigator.pop(ctx);
-                Provider.of<TypeBridgeProvider>(context, listen: false)
+                Provider.of<LocalTypeProvider>(context, listen: false)
                     .disconnect();
               },
               child: const Text('取消'),
@@ -97,7 +97,7 @@ class _BridgeScreenState extends State<BridgeScreen> {
                 final code = codeController.text.trim();
                 if (code.isNotEmpty) {
                   Navigator.pop(ctx);
-                  Provider.of<TypeBridgeProvider>(context, listen: false)
+                  Provider.of<LocalTypeProvider>(context, listen: false)
                       .submitPairingCode(code);
                 }
               },
@@ -111,7 +111,7 @@ class _BridgeScreenState extends State<BridgeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<TypeBridgeProvider>(context);
+    final provider = Provider.of<LocalTypeProvider>(context);
     final theme = Theme.of(context);
     final isConnected = provider.status == ConnectionStatus.connected &&
         provider.authStatus == AuthStatus.authenticated;
@@ -198,7 +198,7 @@ class _BridgeScreenState extends State<BridgeScreen> {
   }
 
   Widget _buildStatusPanel(
-      TypeBridgeProvider provider, ThemeData theme, bool isConnected) {
+      LocalTypeProvider provider, ThemeData theme, bool isConnected) {
     final statusColor = isConnected ? Colors.green : Colors.orange;
     final statusText = isConnected
         ? '已连接'
@@ -311,7 +311,7 @@ class _BridgeScreenState extends State<BridgeScreen> {
     );
   }
 
-  Widget _buildDeviceList(TypeBridgeProvider provider, ThemeData theme) {
+  Widget _buildDeviceList(LocalTypeProvider provider, ThemeData theme) {
     final discovered = provider.discoveredDevices;
     final paired = provider.pairedDevices;
 
@@ -515,7 +515,7 @@ class _BridgeScreenState extends State<BridgeScreen> {
   }
 
   void _showManualInputDialog(
-      BuildContext context, TypeBridgeProvider provider) {
+      BuildContext context, LocalTypeProvider provider) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(

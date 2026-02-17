@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:animations/animations.dart';
 import 'package:provider/provider.dart';
-import '../providers/type_bridge_provider.dart';
+import '../providers/local_type_provider.dart';
 import '../theme/app_theme.dart';
 import '../screens/theme_screen.dart';
 import '../screens/phrase_management_screen.dart';
@@ -13,7 +13,7 @@ class SettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<TypeBridgeProvider>(context);
+    final provider = Provider.of<LocalTypeProvider>(context);
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -65,6 +65,31 @@ class SettingsScreen extends StatelessWidget {
                   onTap: () => _showClearPairingDialog(context, provider),
                 ),
               ],
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // 快捷短语管理
+          _buildSectionHeader(theme, '内容管理'),
+          const SizedBox(height: 8),
+          Card(
+            child: ListTile(
+              leading: Icon(Icons.auto_stories_rounded,
+                  color: theme.colorScheme.primary),
+              title: const Text('快捷短语管理'),
+              subtitle: Text(
+                '共有 ${provider.quickPhrases.length} 条短语',
+                style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const PhraseManagementScreen()),
+                );
+              },
             ),
           ),
 
@@ -238,31 +263,6 @@ class SettingsScreen extends StatelessWidget {
 
           const SizedBox(height: 24),
 
-          // 快捷短语管理
-          _buildSectionHeader(theme, '内容管理'),
-          const SizedBox(height: 8),
-          Card(
-            child: ListTile(
-              leading: Icon(Icons.auto_stories_rounded,
-                  color: theme.colorScheme.primary),
-              title: const Text('快捷短语管理'),
-              subtitle: Text(
-                '共有 ${provider.quickPhrases.length} 条短语',
-                style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
-              ),
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const PhraseManagementScreen()),
-                );
-              },
-            ),
-          ),
-
-          const SizedBox(height: 24),
-
           // 页面动画
           _buildSectionHeader(theme, '页面动画'),
           const SizedBox(height: 8),
@@ -291,9 +291,9 @@ class SettingsScreen extends StatelessWidget {
                 ListTile(
                   leading: const Icon(Icons.info_outline_rounded),
                   iconColor: theme.colorScheme.onSurfaceVariant,
-                  title: const Text('TypeBridge'),
+                  title: const Text('LocalType'),
                   subtitle: Text(
-                    'v1.1.0',
+                    'v1.2.1',
                     style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
                   ),
                 ),
@@ -310,7 +310,7 @@ class SettingsScreen extends StatelessWidget {
                       size: 16, color: theme.colorScheme.onSurfaceVariant),
                   onTap: () {
                     // TODO: 替换为真实的 GitHub 仓库链接
-                    // launchUrl(Uri.parse('https://github.com/your-username/TypeBridge'));
+                    // launchUrl(Uri.parse('https://github.com/your-username/LocalType'));
                   },
                 ),
               ],
@@ -320,7 +320,7 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: 32),
           Center(
             child: Text(
-              'Made with ♥ by TypeBridge',
+              'Made with ♥ by LocalType',
               style: theme.textTheme.bodySmall
                   ?.copyWith(color: theme.colorScheme.outline),
             ),
@@ -346,8 +346,7 @@ class SettingsScreen extends StatelessWidget {
     }
   }
 
-  void _showTransitionDialog(
-      BuildContext context, TypeBridgeProvider provider) {
+  void _showTransitionDialog(BuildContext context, LocalTypeProvider provider) {
     showModal<void>(
       context: context,
       configuration: const FadeScaleTransitionConfiguration(),
@@ -377,47 +376,44 @@ class SettingsScreen extends StatelessWidget {
   }
 
   void _showBubbleColorDialog(
-      BuildContext context, TypeBridgeProvider provider) {
+      BuildContext context, LocalTypeProvider provider) {
     showModal<void>(
       context: context,
       configuration: const FadeScaleTransitionConfiguration(),
       builder: (ctx) => AlertDialog(
         title: const Text('选择气泡背景'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            RadioListTile<String>(
-              title: const Text('极致简约'),
-              subtitle: const Text('白色/灰色背景，悬浮阴影感'),
-              value: 'default',
-              groupValue: provider.bubbleColorType,
-              onChanged: (val) {
-                if (val != null) {
-                  provider.setBubbleColorType(val);
-                  Navigator.pop(ctx);
-                }
-              },
-            ),
-            RadioListTile<String>(
-              title: const Text('主题色调'),
-              subtitle: const Text('跟随当前主题色种子颜色'),
-              value: 'primary',
-              groupValue: provider.bubbleColorType,
-              onChanged: (val) {
-                if (val != null) {
-                  provider.setBubbleColorType(val);
-                  Navigator.pop(ctx);
-                }
-              },
-            ),
-          ],
+        content: RadioGroup<String>(
+          groupValue: provider.bubbleColorType,
+          onChanged: (val) {
+            if (val != null) {
+              provider.setBubbleColorType(val);
+              Navigator.pop(ctx);
+            }
+          },
+          child: const Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              RadioListTile<String>(
+                title: Text('极致简约'),
+                subtitle: Text('白色/灰色背景，悬浮阴影感'),
+                value: 'default',
+                contentPadding: EdgeInsets.zero,
+              ),
+              RadioListTile<String>(
+                title: Text('主题色调'),
+                subtitle: Text('跟随当前主题色种子颜色'),
+                value: 'primary',
+                contentPadding: EdgeInsets.zero,
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildTransitionOption(BuildContext context,
-      TypeBridgeProvider provider, String value, String title) {
+      LocalTypeProvider provider, String value, String title) {
     return RadioListTile<String>(
       title: Text(title),
       value: value,
@@ -440,7 +436,7 @@ class SettingsScreen extends StatelessWidget {
 
   /// 清除配对信息确认对话框
   void _showClearPairingDialog(
-      BuildContext context, TypeBridgeProvider provider) {
+      BuildContext context, LocalTypeProvider provider) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -471,7 +467,7 @@ class SettingsScreen extends StatelessWidget {
 
   /// 修改设备名称对话框
   void _showEditDeviceNameDialog(
-      BuildContext context, TypeBridgeProvider provider) {
+      BuildContext context, LocalTypeProvider provider) {
     final controller = TextEditingController(text: provider.deviceName);
     showDialog(
       context: context,

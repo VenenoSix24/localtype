@@ -29,7 +29,7 @@ use server_state::ServerState;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init_from_env(env_logger::Env::default().default_filter_or("info"));
-    info!("TypeBridge Server Starting...");
+    info!("LocalType Server Starting...");
 
     let event_loop = EventLoopBuilder::new().build();
 
@@ -46,7 +46,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut tray_icon = Some(
         TrayIconBuilder::new()
             .with_menu(Box::new(tray_menu))
-            .with_tooltip("TypeBridge Server")
+            .with_tooltip("LocalType Server")
             .with_icon(load_icon())
             .build()?,
     );
@@ -171,8 +171,8 @@ async fn run_discovery_service() -> std::io::Result<()> {
         let msg = String::from_utf8_lossy(&buf[..len]);
         debug!("Received UDP broadcast from {}: {}", addr, msg);
 
-        if msg.trim() == "typebridge_discovery" {
-            let response = format!("typebridge_server:{}", local_ip);
+        if msg.trim() == "localtype_discovery" {
+            let response = format!("localtype_server:{}", local_ip);
             socket.send_to(response.as_bytes(), addr).await?;
             info!("Responded to discovery from {}", addr);
         }
@@ -234,7 +234,7 @@ async fn accept_connection<S>(
                                 std::thread::spawn(move || {
                                     let _ = DialogBuilder::message()
                                         .set_level(MessageLevel::Info)
-                                        .set_title("TypeBridge 配对验证")
+                                        .set_title("LocalType 配对验证")
                                         .set_text(format!(
                                             "设备 {} 请求配对\n\n验证码: {}",
                                             dialog_device_name, dialog_code

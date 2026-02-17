@@ -3,6 +3,32 @@
 version = 4
 
 [[package]]
+name = "LocalType"
+version = "1.2.1"
+dependencies = [
+ "anyhow",
+ "arboard",
+ "directories",
+ "enigo",
+ "env_logger",
+ "futures-util",
+ "hostname",
+ "local-ip-address",
+ "log",
+ "rand 0.8.5",
+ "rcgen",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-autostart",
+ "tauri-plugin-opener",
+ "tokio",
+ "tokio-rustls",
+ "tokio-tungstenite",
+]
+
+[[package]]
 name = "adler2"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4699,32 +4725,6 @@ dependencies = [
  "thiserror 1.0.69",
  "url",
  "utf-8",
-]
-
-[[package]]
-name = "typebridge_desktop"
-version = "1.1.0"
-dependencies = [
- "anyhow",
- "arboard",
- "directories",
- "enigo",
- "env_logger",
- "futures-util",
- "hostname",
- "local-ip-address",
- "log",
- "rand 0.8.5",
- "rcgen",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-autostart",
- "tauri-plugin-opener",
- "tokio",
- "tokio-rustls",
- "tokio-tungstenite",
 ]
 
 [[package]]

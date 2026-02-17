@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/type_bridge_provider.dart';
+import '../providers/local_type_provider.dart';
 
 /// 统计看板 —— 字数统计与仪式感数据
 class InsightsScreen extends StatelessWidget {
@@ -8,7 +8,7 @@ class InsightsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<TypeBridgeProvider>(context);
+    final provider = Provider.of<LocalTypeProvider>(context);
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -51,7 +51,7 @@ class InsightsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildMainStatsCard(TypeBridgeProvider provider, ThemeData theme) {
+  Widget _buildMainStatsCard(LocalTypeProvider provider, ThemeData theme) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(28),
@@ -98,7 +98,7 @@ class InsightsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildTodayCard(TypeBridgeProvider provider, ThemeData theme) {
+  Widget _buildTodayCard(LocalTypeProvider provider, ThemeData theme) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -141,7 +141,7 @@ class InsightsScreen extends StatelessWidget {
   }
 
   Widget _buildMilestones(
-      BuildContext context, TypeBridgeProvider provider, ThemeData theme) {
+      BuildContext context, LocalTypeProvider provider, ThemeData theme) {
     final milestones = [
       _Milestone('初出茅庐', 100, Icons.emoji_events_outlined),
       _Milestone('小试牛刀', 1000, Icons.workspace_premium_outlined),
