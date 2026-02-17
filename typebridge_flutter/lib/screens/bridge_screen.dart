@@ -118,7 +118,14 @@ class _BridgeScreenState extends State<BridgeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('设备连接'),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.hub_rounded, size: 22, color: theme.colorScheme.primary),
+            const SizedBox(width: 8),
+            const Text('连接'),
+          ],
+        ),
       ),
       body: CustomScrollView(
         slivers: [

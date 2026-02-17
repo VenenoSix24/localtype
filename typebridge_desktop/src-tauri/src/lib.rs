@@ -499,23 +499,19 @@ async fn accept_connection<S>(
                                         break; 
                                     }
                                 }
-                                ClientMessage::Send { mode, content, method } => {
+                                ClientMessage::Send { content, method, msg_id } => {
                                     if authenticated_device_name.is_some() {
                                         if is_paused.load(Ordering::Relaxed) { continue; }
                                         let injection_method = method.unwrap_or_else(|| "unicode".to_string());
-                                        if mode == "realtime" {
-                                            if content.starts_with(&last_text) {
-                                                let diff = &content[last_text.len()..];
-                                                if !diff.is_empty() { perform_injection(diff, &injection_method).await; }
-                                                last_text = content;
-                                            } else if content.is_empty() {
-                                                last_text.clear();
-                                            } else {
-                                                last_text = content;
-                                            }
-                                        } else {
-                                            perform_injection(&content, &injection_method).await;
-                                            last_text.clear();
+                                        
+                                        // 执行注入
+                                        perform_injection(&content, &injection_method).await;
+                                        last_text.clear();
+
+                                        // 如果客户端提供了消息 ID，回传 ACK
+                                        if let Some(id) = msg_id {
+                                            let ack = serde_json::to_string(&ServerResponse::Ack { msg_id: id }).unwrap();
+                                            let _ = ws_write.send(Message::Text(ack)).await;
                                         }
                                     } else {
                                         let response = serde_json::to_string(&ServerResponse::Error {
@@ -604,9 +600,9 @@ enum ClientMessage {
         os: Option<String>,
     },
     Send {
-        mode: String,
         content: String,
         method: Option<String>,
+        msg_id: Option<String>,
     },
     Reset,
     Unpair,
@@ -621,6 +617,7 @@ enum ServerResponse {
     AuthSuccess,
     AuthFailed,
     Unpaired,
+    Ack { msg_id: String },
     Error { message: String },
 }
 

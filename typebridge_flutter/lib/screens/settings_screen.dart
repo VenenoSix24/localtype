@@ -17,7 +17,15 @@ class SettingsScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('设置'),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.settings_rounded,
+                size: 22, color: theme.colorScheme.primary),
+            const SizedBox(width: 8),
+            const Text('设置'),
+          ],
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -254,7 +262,8 @@ class SettingsScreen extends StatelessWidget {
                   trailing: Icon(Icons.open_in_new_rounded,
                       size: 16, color: theme.colorScheme.onSurfaceVariant),
                   onTap: () {
-                    // TODO: 跳转 GitHub 链接
+                    // TODO: 替换为真实的 GitHub 仓库链接
+                    // launchUrl(Uri.parse('https://github.com/your-username/TypeBridge'));
                   },
                 ),
               ],
@@ -297,15 +306,24 @@ class SettingsScreen extends StatelessWidget {
       configuration: const FadeScaleTransitionConfiguration(),
       builder: (ctx) => AlertDialog(
         title: const Text('选择过渡动画'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildTransitionOption(ctx, provider, 'sharedAxisX', '共享轴 X'),
-            _buildTransitionOption(ctx, provider, 'sharedAxisY', '共享轴 Y'),
-            _buildTransitionOption(ctx, provider, 'sharedAxisZ', '共享轴 Z'),
-            _buildTransitionOption(ctx, provider, 'fadeThrough', '淡入淡出'),
-            _buildTransitionOption(ctx, provider, 'default', '无动画'),
-          ],
+        content: RadioGroup<String>(
+          groupValue: provider.pageTransitionType,
+          onChanged: (val) {
+            if (val != null) {
+              provider.setPageTransitionType(val);
+              Navigator.pop(ctx);
+            }
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildTransitionOption(ctx, provider, 'sharedAxisX', '共享轴 X'),
+              _buildTransitionOption(ctx, provider, 'sharedAxisY', '共享轴 Y'),
+              _buildTransitionOption(ctx, provider, 'sharedAxisZ', '共享轴 Z'),
+              _buildTransitionOption(ctx, provider, 'fadeThrough', '淡入淡出'),
+              _buildTransitionOption(ctx, provider, 'default', '无动画'),
+            ],
+          ),
         ),
       ),
     );
@@ -316,13 +334,6 @@ class SettingsScreen extends StatelessWidget {
     return RadioListTile<String>(
       title: Text(title),
       value: value,
-      groupValue: provider.pageTransitionType,
-      onChanged: (val) {
-        if (val != null) {
-          provider.setPageTransitionType(val);
-          Navigator.pop(context);
-        }
-      },
       contentPadding: EdgeInsets.zero,
     );
   }

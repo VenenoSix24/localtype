@@ -53,6 +53,26 @@ class QuickPhrase {
       );
 }
 
+/// 消息发送状态
+enum MessageStatus { sending, sent, acked, error }
+
+/// 聊天消息模型
+class MessageModel {
+  final String id;
+  final String text;
+  final DateTime timestamp;
+  final bool isSystem;
+  MessageStatus status;
+
+  MessageModel({
+    required this.id,
+    required this.text,
+    required this.timestamp,
+    this.isSystem = false,
+    this.status = MessageStatus.sending,
+  });
+}
+
 /// TypeBridge 核心状态管理
 class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
   WebSocketChannel? _channel;
@@ -62,7 +82,6 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
   final TextEditingController ipController = TextEditingController();
   final TextEditingController textController = TextEditingController();
 
-  bool _isRealtime = false;
   bool _isDarkMode = false;
   bool _useDynamicColor = false;
   Color _seedColor = const Color(0xFF2563EB);
@@ -100,6 +119,9 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
   String _todayDateKey = '';
   String _pageTransitionType = 'sharedAxisX';
 
+  // --- V1.2 聊天流 ---
+  final List<MessageModel> _messages = [];
+
   /// 配对对话框回调
   Function(String)? onPairingRequired;
 
@@ -108,7 +130,6 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
   ConnectionStatus get connectionStatus => _status;
   AuthStatus get authStatus => _authStatus;
   List<String> get logs => _logs;
-  bool get isRealtime => _isRealtime;
   bool get isDarkMode => _isDarkMode;
   String get injectionMethod => _injectionMethod;
   String? get connectedIp => _lastConnectedIp;
@@ -124,6 +145,7 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
   Color get seedColor => _seedColor;
   bool get useDynamicColor => _useDynamicColor;
   String get pageTransitionType => _pageTransitionType;
+  List<MessageModel> get messages => List.unmodifiable(_messages);
 
   TypeBridgeProvider() {
     WidgetsBinding.instance.addObserver(this);
@@ -317,11 +339,6 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   // ==================== Toggles ====================
 
-  void toggleRealtime(bool value) {
-    _isRealtime = value;
-    notifyListeners();
-  }
-
   void toggleTheme(bool value) async {
     _isDarkMode = value;
     final prefs = await SharedPreferences.getInstance();
@@ -483,8 +500,6 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
       _channel = IOWebSocketChannel(webSocket);
 
       _status = ConnectionStatus.connected;
-      _lastConnectedIp = ip;
-      _reconnectAttempts = 0;
 
       // Determine remote name
       String nameToSave = 'Desktop ($ip)';
@@ -496,6 +511,17 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
         if (pairedMatch.isNotEmpty) nameToSave = pairedMatch.first.name;
       }
       _remoteServerName = nameToSave;
+
+      // 会话隔离逻辑：如果 IP 变了，清空消息列表
+      if (_lastConnectedIp != null && _lastConnectedIp != ip) {
+        _messages.clear();
+        addLog('切换目标设备，已开启新会话');
+      }
+
+      _addSystemMessage('已连接到 $_remoteServerName');
+
+      _lastConnectedIp = ip;
+      _reconnectAttempts = 0;
 
       addLog('已连接到 $_remoteServerName');
       notifyListeners();
@@ -576,10 +602,18 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
           disconnect(); // 直接断开，不再自动发起配对请求
           break;
         case 'unpaired':
-          addLog('授权已撤销或已解除配对');
+          _addSystemMessage('连接已撤销或已解除配对');
           _authToken = null;
           _saveToken('');
           disconnect();
+          break;
+        case 'ack':
+          final msgId = msg['msg_id'];
+          final index = _messages.indexWhere((m) => m.id == msgId);
+          if (index != -1) {
+            _messages[index].status = MessageStatus.acked;
+            notifyListeners();
+          }
           break;
         case 'error':
           addLog('服务端错误: ${msg['message']}');
@@ -656,8 +690,10 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void disconnect() {
+    if (_status == ConnectionStatus.disconnected) return;
+
     _stopReconnect();
-    addLog('正在断开...');
+    _addSystemMessage('已断开连接');
     _channel?.sink.close();
     _cleanupConnection();
     _status = ConnectionStatus.disconnected;
@@ -730,26 +766,42 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
 
     final text = textController.text;
-    if (text.isEmpty && !_isRealtime) return;
+    if (text.isEmpty) return;
+
+    final msgId = DateTime.now().millisecondsSinceEpoch.toString();
+
+    // UI 先上屏
+    final messageObj = MessageModel(
+      id: msgId,
+      text: text,
+      timestamp: DateTime.now(),
+      status: MessageStatus.sending,
+    );
+    _messages.insert(0, messageObj);
+    notifyListeners();
 
     final message = jsonEncode({
       'type': 'send',
-      'mode': _isRealtime ? 'realtime' : 'chat',
       'content': text,
       'method': _injectionMethod,
+      'msg_id': msgId,
     });
 
     try {
       _channel!.sink.add(message);
-      if (!_isRealtime) {
-        addLog(
-            '已发送: ${text.length > 20 ? '${text.substring(0, 20)}...' : text}');
-        _addToHistory(text);
-        _addCharCount(text.length);
-        textController.clear();
-      }
+
+      // 更新状态为已送出（单勾）
+      messageObj.status = MessageStatus.sent;
+
+      addLog('已发送: ${text.length > 20 ? '${text.substring(0, 20)}...' : text}');
+      _addToHistory(text);
+      _addCharCount(text.length);
+      textController.clear();
+      notifyListeners();
     } catch (e) {
+      messageObj.status = MessageStatus.error;
       addLog('发送失败: $e');
+      notifyListeners();
     }
   }
 
@@ -762,30 +814,39 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
       return;
     }
 
+    final msgId = DateTime.now().millisecondsSinceEpoch.toString();
+
+    // UI 先上屏
+    final messageObj = MessageModel(
+      id: msgId,
+      text: text,
+      timestamp: DateTime.now(),
+      status: MessageStatus.sending,
+    );
+    _messages.insert(0, messageObj);
+    notifyListeners();
+
     final message = jsonEncode({
       'type': 'send',
-      'mode': 'chat',
       'content': text,
       'method': _injectionMethod,
+      'msg_id': msgId,
     });
 
     try {
       _channel!.sink.add(message);
+      messageObj.status = MessageStatus.sent;
+
       addLog(
           '快捷发送: ${text.length > 20 ? '${text.substring(0, 20)}...' : text}');
       _addToHistory(text);
       _addCharCount(text.length);
+      notifyListeners();
     } catch (e) {
+      messageObj.status = MessageStatus.error;
       addLog('发送失败: $e');
+      notifyListeners();
     }
-  }
-
-  void sendRealtimeText(String text) {
-    if (!_isRealtime) return;
-    if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
-    _debounceTimer = Timer(const Duration(milliseconds: 150), () {
-      sendText();
-    });
   }
 
   void _addToHistory(String text) async {
@@ -843,6 +904,19 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('total_chars', _totalChars);
     await prefs.setInt('today_chars_$_todayDateKey', _todayChars);
+    notifyListeners();
+  }
+
+  void _addSystemMessage(String text) {
+    _messages.insert(
+      0,
+      MessageModel(
+        id: 'sys_${DateTime.now().millisecondsSinceEpoch}',
+        text: text,
+        timestamp: DateTime.now(),
+        isSystem: true,
+      ),
+    );
     notifyListeners();
   }
 }
