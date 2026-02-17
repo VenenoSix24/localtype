@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/type_bridge_provider.dart';
 import '../theme/app_theme.dart';
 import '../screens/theme_screen.dart';
+import '../screens/phrase_management_screen.dart';
 
 /// 设置页面
 /// 包含外观、注入方式、连接信息和关于等设置项
@@ -216,6 +217,52 @@ class SettingsScreen extends StatelessWidget {
 
           const SizedBox(height: 24),
 
+          // 聊天气泡
+          _buildSectionHeader(theme, '聊天气泡'),
+          const SizedBox(height: 8),
+          Card(
+            child: ListTile(
+              leading: Icon(Icons.chat_bubble_outline_rounded,
+                  color: theme.colorScheme.primary),
+              title: const Text('气泡背景'),
+              subtitle: Text(
+                provider.bubbleColorType == 'default'
+                    ? '极致简约 (白色/悬浮)'
+                    : '主题色调 (活力)',
+                style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => _showBubbleColorDialog(context, provider),
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // 快捷短语管理
+          _buildSectionHeader(theme, '内容管理'),
+          const SizedBox(height: 8),
+          Card(
+            child: ListTile(
+              leading: Icon(Icons.auto_stories_rounded,
+                  color: theme.colorScheme.primary),
+              title: const Text('快捷短语管理'),
+              subtitle: Text(
+                '共有 ${provider.quickPhrases.length} 条短语',
+                style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const PhraseManagementScreen()),
+                );
+              },
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
           // 页面动画
           _buildSectionHeader(theme, '页面动画'),
           const SizedBox(height: 8),
@@ -324,6 +371,46 @@ class SettingsScreen extends StatelessWidget {
               _buildTransitionOption(ctx, provider, 'default', '无动画'),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  void _showBubbleColorDialog(
+      BuildContext context, TypeBridgeProvider provider) {
+    showModal<void>(
+      context: context,
+      configuration: const FadeScaleTransitionConfiguration(),
+      builder: (ctx) => AlertDialog(
+        title: const Text('选择气泡背景'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            RadioListTile<String>(
+              title: const Text('极致简约'),
+              subtitle: const Text('白色/灰色背景，悬浮阴影感'),
+              value: 'default',
+              groupValue: provider.bubbleColorType,
+              onChanged: (val) {
+                if (val != null) {
+                  provider.setBubbleColorType(val);
+                  Navigator.pop(ctx);
+                }
+              },
+            ),
+            RadioListTile<String>(
+              title: const Text('主题色调'),
+              subtitle: const Text('跟随当前主题色种子颜色'),
+              value: 'primary',
+              groupValue: provider.bubbleColorType,
+              onChanged: (val) {
+                if (val != null) {
+                  provider.setBubbleColorType(val);
+                  Navigator.pop(ctx);
+                }
+              },
+            ),
+          ],
         ),
       ),
     );

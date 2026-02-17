@@ -19,6 +19,7 @@ class _InputScreenState extends State<InputScreen> {
   final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
   final Set<String> _selectedIds = {}; // 当前选中的消息 ID 集合
   int _lastMessageCount = 0;
+  bool _showPhrases = false; // 是否显示快捷短语菜单
 
   @override
   void initState() {
@@ -133,19 +134,22 @@ class _InputScreenState extends State<InputScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: theme.colorScheme.surface,
+        backgroundColor: theme.brightness == Brightness.light
+            ? theme.colorScheme.primary.withValues(alpha: 0.05)
+            : theme.colorScheme.surfaceContainerLow, // 暗黑模式下背景更深，拉开与气泡的距离
         appBar: _buildAppBar(context, provider, theme),
         body: !isConnected
             ? _buildDisconnectedView(theme)
-            : Column(
+            : Stack(
                 children: [
-                  Expanded(
+                  // 聊天内容层：铺满全屏，让内容可以滚动到输入框下方
+                  Positioned.fill(
                     child: AnimatedList(
                       key: _listKey,
                       controller: _scrollController,
                       reverse: true,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 20),
+                      padding: const EdgeInsets.fromLTRB(
+                          16, 20, 16, 110), // 底部留出足够空间给悬浮输入框
                       initialItemCount: provider.messages.length,
                       itemBuilder: (context, index, animation) {
                         if (index >= provider.messages.length) {
@@ -157,7 +161,14 @@ class _InputScreenState extends State<InputScreen> {
                       },
                     ),
                   ),
-                  _buildInputSection(context, provider, theme),
+
+                  // 输入区域层：浮动在最上方，透明背景
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: _buildInputSection(context, provider, theme),
+                  ),
                 ],
               ),
       ),
@@ -200,10 +211,16 @@ class _InputScreenState extends State<InputScreen> {
                   ),
                   const SizedBox(width: 8),
                 ],
+                surfaceTintColor: Colors.transparent, // 防止滚动变色
+                backgroundColor: theme.colorScheme.surface,
               )
             : AppBar(
                 key: const ValueKey('normal_appbar'),
                 centerTitle: true,
+                backgroundColor: theme.colorScheme.surface,
+                surfaceTintColor: Colors.transparent, // 防止滚动变色
+                elevation: 0,
+                scrolledUnderElevation: 1,
                 title: Column(
                   children: [
                     Text(
@@ -323,86 +340,259 @@ class _InputScreenState extends State<InputScreen> {
   Widget _buildInputSection(
       BuildContext context, TypeBridgeProvider provider, ThemeData theme) {
     return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12), // 缩短底部距离，从 20 减为 12
+      color: Colors.transparent,
       child: SafeArea(
         child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            _buildQuickPhrasesBar(context, provider, theme),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 8, 12),
+            // 带有动画的垂直弹出菜单 (现在作为 Column 的一部分，解决点击和遮挡问题)
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 350),
+              reverseDuration: const Duration(milliseconds: 200),
+              switchInCurve: Curves.easeOutQuart,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, animation) {
+                return SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0, 0.1),
+                    end: Offset.zero,
+                  ).animate(animation),
+                  child: FadeTransition(
+                    opacity: animation,
+                    child: child,
+                  ),
+                );
+              },
+              child: _showPhrases
+                  ? Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _buildPhraseMenu(context, provider, theme),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+
+            // 通体圆角输入框 (TG 风格)
+            Container(
+              decoration: BoxDecoration(
+                color: theme.brightness == Brightness.light
+                    ? theme.colorScheme.surface
+                    : theme.colorScheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(28),
+                boxShadow: [
+                  BoxShadow(
+                    color: theme.brightness == Brightness.light
+                        ? Colors.black.withValues(alpha: 0.08)
+                        : Colors.black.withValues(alpha: 0.2),
+                    blurRadius: 15,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.all(4),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.surfaceContainerLow,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                          color: theme.colorScheme.outlineVariant
-                              .withValues(alpha: 0.5),
-                        ),
-                      ),
-                      padding: const EdgeInsets.only(left: 16, right: 8),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: provider.textController,
-                              focusNode: _focusNode,
-                              minLines: 1,
-                              maxLines: 5,
-                              decoration: const InputDecoration(
-                                hintText: '输入内容...',
-                                border: InputBorder.none,
-                                enabledBorder: InputBorder.none,
-                                focusedBorder: InputBorder.none,
-                                contentPadding:
-                                    EdgeInsets.symmetric(vertical: 10),
-                              ),
-                              style: const TextStyle(fontSize: 15),
-                            ),
-                          ),
-                          IconButton(
-                            icon:
-                                const Icon(Icons.fullscreen_rounded, size: 20),
-                            onPressed: () =>
-                                _showFullscreenInput(context, provider),
-                            color: theme.colorScheme.primary,
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            visualDensity: VisualDensity.compact,
-                          ),
-                        ],
-                      ),
+                  // 左侧菜单按钮
+                  IconButton(
+                    onPressed: () {
+                      setState(() => _showPhrases = !_showPhrases);
+                      HapticFeedback.mediumImpact();
+                    },
+                    icon: Icon(
+                      _showPhrases ? Icons.close_rounded : Icons.menu_rounded,
+                      size: 20,
+                    ),
+                    color: _showPhrases
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onPrimary,
+                    style: IconButton.styleFrom(
+                      backgroundColor: _showPhrases
+                          ? theme.colorScheme.primary.withValues(alpha: 0.1)
+                          : Color.lerp(theme.colorScheme.primary, Colors.white,
+                              0.15), // 与气泡同步提亮
+                      minimumSize: const Size(40, 40),
+                      padding: EdgeInsets.zero,
                     ),
                   ),
-                  const SizedBox(width: 4),
+
+                  const SizedBox(width: 8),
+
+                  // 输入框
+                  Expanded(
+                    child: TextField(
+                      key: const PageStorageKey('chat_input_field'),
+                      controller: provider.textController,
+                      focusNode: _focusNode,
+                      minLines: 1,
+                      maxLines: 5,
+                      contextMenuBuilder: (context, editableTextState) {
+                        final List<ContextMenuButtonItem> buttonItems =
+                            editableTextState.contextMenuButtonItems;
+                        buttonItems.insert(
+                          0,
+                          ContextMenuButtonItem(
+                            label: '全屏视角',
+                            onPressed: () {
+                              ContextMenuController.removeAny();
+                              _showFullscreenInput(context, provider);
+                            },
+                          ),
+                        );
+                        return AdaptiveTextSelectionToolbar.buttonItems(
+                          anchors: editableTextState.contextMenuAnchors,
+                          buttonItems: buttonItems,
+                        );
+                      },
+                      decoration: const InputDecoration(
+                        hintText: '开始打字...',
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        contentPadding: EdgeInsets.fromLTRB(12, 12, 12, 12),
+                        fillColor: Colors.transparent, // 背景与胶囊背景合一
+                        filled: true,
+                      ),
+                      style: const TextStyle(fontSize: 16),
+                      scrollPadding: const EdgeInsets.only(bottom: 20),
+                    ),
+                  ),
+
+                  const SizedBox(width: 8),
+
+                  // 集成发送按钮
                   IconButton(
                     onPressed: () {
                       HapticFeedback.lightImpact();
                       provider.sendText();
                     },
-                    icon: Icon(Icons.send_rounded,
-                        color: theme.colorScheme.primary),
+                    icon: const Icon(Icons.send_rounded, size: 20),
+                    color: theme.colorScheme.onPrimary,
                     style: IconButton.styleFrom(
-                      backgroundColor: theme.colorScheme.primaryContainer,
-                      minimumSize: const Size(44, 44),
+                      backgroundColor: Color.lerp(theme.colorScheme.primary,
+                          Colors.white, 0.15), // 与气泡同步提亮
+                      minimumSize: const Size(40, 40),
+                      padding: EdgeInsets.zero,
                     ),
                   ),
                 ],
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPhraseMenu(
+      BuildContext context, TypeBridgeProvider provider, ThemeData theme) {
+    if (provider.quickPhrases.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Row(
+          children: [
+            const Text('暂无快捷短语'),
+            const Spacer(),
+            TextButton.icon(
+              onPressed: () => _showAddPhraseDialog(context, provider),
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('去添加'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      constraints: const BoxConstraints(maxHeight: 220),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: theme.brightness == Brightness.light
+                ? Colors.black.withValues(alpha: 0.1)
+                : Colors.black.withValues(alpha: 0.25),
+            blurRadius: 30,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Material(
+        color: theme.brightness == Brightness.light
+            ? theme.colorScheme.surface
+            : theme.colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(24),
+        clipBehavior: Clip.antiAlias,
+        child: ListView.builder(
+          shrinkWrap: true,
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          itemCount: provider.quickPhrases.length + 1,
+          itemBuilder: (context, index) {
+            if (index == provider.quickPhrases.length) {
+              return ListTile(
+                dense: true,
+                minVerticalPadding: 0,
+                visualDensity: VisualDensity.compact,
+                leading: const Icon(Icons.add_circle_outline_rounded, size: 18),
+                title: const Text('管理/添加新短语', style: TextStyle(fontSize: 13)),
+                onTap: () {
+                  _showAddPhraseDialog(context, provider);
+                },
+              );
+            }
+            final phrase = provider.quickPhrases[index];
+            return ListTile(
+              dense: true,
+              minVerticalPadding: 0,
+              visualDensity: VisualDensity.compact,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+              title: Text(phrase.label,
+                  style: const TextStyle(
+                      fontSize: 14, fontWeight: FontWeight.w600)),
+              trailing: Text(
+                phrase.content.length > 20
+                    ? '${phrase.content.substring(0, 20)}...'
+                    : phrase.content,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              onTap: () {
+                final text = phrase.content;
+                final controller = provider.textController;
+                final currentText = controller.text;
+                final selection = controller.selection;
+
+                if (selection.isValid) {
+                  final newText = currentText.replaceRange(
+                    selection.start,
+                    selection.end,
+                    text,
+                  );
+                  controller.text = newText;
+                  // 移动光标到插入文本之后
+                  controller.selection = TextSelection.collapsed(
+                    offset: selection.start + text.length,
+                  );
+                } else {
+                  controller.text += text;
+                }
+
+                HapticFeedback.lightImpact();
+                setState(() => _showPhrases = false);
+                _focusNode.requestFocus(); // 保持焦点
+              },
+              onLongPress: () {
+                _showPhraseOptions(context, provider, phrase);
+              },
+            );
+          },
         ),
       ),
     );
@@ -444,83 +634,6 @@ class _InputScreenState extends State<InputScreen> {
           ),
         );
       },
-    );
-  }
-
-  Widget _buildQuickPhrasesBar(
-      BuildContext context, TypeBridgeProvider provider, ThemeData theme) {
-    // 如果在选择模式下，隐藏快捷短语栏
-    if (_isSelectionMode) return const SizedBox.shrink();
-
-    return SizedBox(
-      height: 54,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        itemCount: provider.quickPhrases.length + 1,
-        itemBuilder: (context, index) {
-          if (index == 0) {
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: IconButton(
-                icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
-                onPressed: () => _showAddPhraseDialog(context, provider),
-                style: IconButton.styleFrom(
-                  backgroundColor: theme.colorScheme.surfaceContainerHigh,
-                ),
-              ),
-            );
-          }
-
-          final phrase = provider.quickPhrases[index - 1];
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: GestureDetector(
-              onLongPress: () =>
-                  _showDeletePhraseDialog(context, provider, phrase),
-              child: ActionChip(
-                backgroundColor: theme.colorScheme.surfaceContainerHigh,
-                side: BorderSide.none,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16)),
-                label: Text(
-                  phrase.label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: theme.colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                onPressed: () =>
-                    _showConfirmSendPhraseDialog(context, provider, phrase),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  void _showConfirmSendPhraseDialog(
-      BuildContext context, TypeBridgeProvider provider, QuickPhrase phrase) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('确认发送「${phrase.label}」?'),
-        content:
-            Text(phrase.content, maxLines: 5, overflow: TextOverflow.ellipsis),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
-          FilledButton(
-            onPressed: () {
-              provider.sendDirectText(phrase.content);
-              Navigator.pop(ctx);
-            },
-            child: const Text('确认发送'),
-          ),
-        ],
-      ),
     );
   }
 
@@ -575,6 +688,101 @@ class _InputScreenState extends State<InputScreen> {
                 }
               },
               child: const Text('添加'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showPhraseOptions(
+      BuildContext context, TypeBridgeProvider provider, QuickPhrase phrase) {
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.edit_rounded),
+              title: const Text('编辑短语'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showEditPhraseDialog(context, provider, phrase);
+              },
+            ),
+            ListTile(
+              leading:
+                  const Icon(Icons.delete_outline_rounded, color: Colors.red),
+              title: const Text('删除短语', style: TextStyle(color: Colors.red)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showDeletePhraseDialog(context, provider, phrase);
+              },
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showEditPhraseDialog(
+      BuildContext context, TypeBridgeProvider provider, QuickPhrase phrase) {
+    final labelCtrl = TextEditingController(text: phrase.label);
+    final contentCtrl = TextEditingController(text: phrase.content);
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+          title: const Text('编辑快捷短语'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: labelCtrl,
+                decoration: InputDecoration(
+                  labelText: '标签名',
+                  filled: true,
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16)),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: contentCtrl,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  labelText: '内容',
+                  filled: true,
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16)),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final label = labelCtrl.text.trim();
+                final content = contentCtrl.text.trim();
+                if (label.isNotEmpty && content.isNotEmpty) {
+                  provider.updatePhrase(phrase.id, label, content);
+                  Navigator.pop(ctx);
+                }
+              },
+              child: const Text('保存修改'),
             ),
           ],
         );
@@ -724,6 +932,28 @@ class _ChatBubbleState extends State<_ChatBubble> {
       );
     }
 
+    final isThemeColor = widget.provider.bubbleColorType == 'primary';
+
+    // 提亮并保持鲜艳度的逻辑
+    final vibrantThemeColor =
+        Color.lerp(theme.colorScheme.primary, Colors.white, 0.15)!;
+
+    final bubbleColor = widget.isSelected
+        ? theme.colorScheme.primaryContainer
+        : isThemeColor
+            ? vibrantThemeColor
+            : theme.brightness == Brightness.light
+                ? theme.colorScheme.surface
+                : theme.colorScheme.surfaceContainerHigh;
+
+    final contentColor = widget.isSelected
+        ? theme.colorScheme.onPrimaryContainer
+        : isThemeColor
+            ? theme.colorScheme.onPrimary // 提亮 15% 依然属于深色，白色文字更鲜艳
+            : theme.colorScheme.onSurface;
+
+    final metadataColor = contentColor.withValues(alpha: 0.7);
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: InkWell(
@@ -735,14 +965,14 @@ class _ChatBubbleState extends State<_ChatBubble> {
           duration: const Duration(milliseconds: 250),
           curve: Curves.easeInOutCubic,
           padding: EdgeInsets.only(
-              left: widget.isSelectionMode ? 40 : 16, right: 16),
+              left: widget.isSelectionMode ? 42 : 16, right: 16), // 稍微增加间距给勾选框
           child: Stack(
             clipBehavior: Clip.none,
             children: [
               // 左侧勾选框 (TG 风格)
               if (widget.isSelectionMode)
                 Positioned(
-                  left: -32,
+                  left: -34,
                   top: 0,
                   bottom: 0,
                   child: Center(
@@ -761,41 +991,38 @@ class _ChatBubbleState extends State<_ChatBubble> {
               // 气泡内容
               Align(
                 alignment: Alignment.centerRight,
-                child: Container(
-                  margin: const EdgeInsets.only(left: 44),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeInOutCubic,
+                  margin: EdgeInsets.only(
+                      left: widget.isSelectionMode
+                          ? 18
+                          : 44), // 重要：减少 margin 以补偿 padding 的增加，保持总宽度稳定
                   child: GestureDetector(
-                    onPanDown: (_) => setState(() => _isPressed = true),
-                    onPanCancel: () => setState(() => _isPressed = false),
-                    onPanEnd: (_) => setState(() => _isPressed = false),
+                    onTapDown: (_) => setState(() => _isPressed = true),
+                    onTapCancel: () => setState(() => _isPressed = false),
+                    onTapUp: (_) => setState(() => _isPressed = false),
                     child: AnimatedScale(
-                      scale: _isPressed ? 0.96 : 1.0,
+                      scale: _isPressed ? 0.98 : 1.0, // 减小缩放幅度，使其更稳重
                       duration: const Duration(milliseconds: 100),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 14, vertical: 10),
                         decoration: BoxDecoration(
-                          color: widget.isSelected
-                              ? Color.lerp(theme.colorScheme.primaryContainer,
-                                  theme.colorScheme.primary, 0.1)
-                              : theme.colorScheme.primaryContainer,
+                          color: bubbleColor,
                           borderRadius: const BorderRadius.only(
                             topLeft: Radius.circular(18),
-                            topRight: Radius.circular(2),
+                            topRight: Radius.circular(4),
                             bottomLeft: Radius.circular(18),
                             bottomRight: Radius.circular(18),
                           ),
-                          border: widget.isSelected
-                              ? Border.all(
-                                  color: theme.colorScheme.primary
-                                      .withValues(alpha: 0.3),
-                                  width: 1)
-                              : null,
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black
-                                  .withValues(alpha: _isPressed ? 0.02 : 0.05),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
+                              color: theme.brightness == Brightness.light
+                                  ? Colors.black.withValues(alpha: 0.08)
+                                  : Colors.black.withValues(alpha: 0.2),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
                             ),
                           ],
                         ),
@@ -805,9 +1032,9 @@ class _ChatBubbleState extends State<_ChatBubble> {
                             Text(
                               message.text,
                               style: TextStyle(
-                                color: theme.colorScheme.onPrimaryContainer,
-                                fontSize: 15,
-                                height: 1.4,
+                                color: contentColor,
+                                fontSize: 16,
+                                height: 1.45,
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -817,13 +1044,13 @@ class _ChatBubbleState extends State<_ChatBubble> {
                                 Text(
                                   '${message.timestamp.hour.toString().padLeft(2, '0')}:${message.timestamp.minute.toString().padLeft(2, '0')}',
                                   style: TextStyle(
-                                    fontSize: 9,
-                                    color: theme.colorScheme.onPrimaryContainer
-                                        .withValues(alpha: 0.6),
+                                    fontSize: 10,
+                                    color: metadataColor,
                                   ),
                                 ),
                                 const SizedBox(width: 4),
-                                _buildStatusIconInner(message.status, theme),
+                                _buildStatusIconInner(
+                                    message.status, theme, metadataColor),
                               ],
                             ),
                           ],
@@ -840,23 +1067,22 @@ class _ChatBubbleState extends State<_ChatBubble> {
     );
   }
 
-  Widget _buildStatusIconInner(MessageStatus status, ThemeData theme) {
-    final opacityColor =
-        theme.colorScheme.onPrimaryContainer.withValues(alpha: 0.7);
+  Widget _buildStatusIconInner(
+      MessageStatus status, ThemeData theme, Color color) {
     switch (status) {
       case MessageStatus.sending:
         return SizedBox(
           width: 10,
           height: 10,
           child: CircularProgressIndicator(
-            strokeWidth: 1.5,
-            color: opacityColor,
+            strokeWidth: 1.2,
+            color: color,
           ),
         );
       case MessageStatus.sent:
-        return Icon(Icons.done_rounded, size: 14, color: opacityColor);
+        return Icon(Icons.done_rounded, size: 14, color: color);
       case MessageStatus.acked:
-        return Icon(Icons.done_all_rounded, size: 14, color: opacityColor);
+        return Icon(Icons.done_all_rounded, size: 14, color: color);
       case MessageStatus.error:
         return const Icon(Icons.error_outline_rounded,
             size: 14, color: Colors.red);

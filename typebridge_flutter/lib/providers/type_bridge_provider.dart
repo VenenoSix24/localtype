@@ -118,6 +118,7 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
   int _todayChars = 0;
   String _todayDateKey = '';
   String _pageTransitionType = 'sharedAxisX';
+  String _bubbleColorType = 'default';
 
   // --- V1.2 聊天流 ---
   final List<MessageModel> _messages = [];
@@ -145,6 +146,7 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
   Color get seedColor => _seedColor;
   bool get useDynamicColor => _useDynamicColor;
   String get pageTransitionType => _pageTransitionType;
+  String get bubbleColorType => _bubbleColorType;
   List<MessageModel> get messages => List.unmodifiable(_messages);
 
   TypeBridgeProvider() {
@@ -229,6 +231,7 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
     // Load Page Transition Preference
     _pageTransitionType =
         prefs.getString('page_transition_type') ?? 'sharedAxisX';
+    _bubbleColorType = prefs.getString('bubble_color_type') ?? 'default';
 
     // Load Paired Devices
     await _loadPairedDevices();
@@ -371,6 +374,13 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
     _pageTransitionType = type;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('page_transition_type', type);
+    notifyListeners();
+  }
+
+  void setBubbleColorType(String type) async {
+    _bubbleColorType = type;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('bubble_color_type', type);
     notifyListeners();
   }
 
@@ -880,8 +890,27 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  Future<void> updatePhrase(String id, String label, String content) async {
+    final index = _quickPhrases.indexWhere((p) => p.id == id);
+    if (index != -1) {
+      _quickPhrases[index] = QuickPhrase(
+        id: id,
+        label: label,
+        content: content,
+      );
+      await _savePhrases();
+      notifyListeners();
+    }
+  }
+
   Future<void> removePhrase(String id) async {
     _quickPhrases.removeWhere((p) => p.id == id);
+    await _savePhrases();
+    notifyListeners();
+  }
+
+  Future<void> removePhrases(List<String> ids) async {
+    _quickPhrases.removeWhere((p) => ids.contains(p.id));
     await _savePhrases();
     notifyListeners();
   }
