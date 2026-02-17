@@ -42,6 +42,8 @@ dependencies:
   flutter_animate: ^4.5.2
   mobile_scanner: ^7.1.4
   permission_handler: ^12.0.1
+  material_color_utilities: ^0.13.0
+  dynamic_color: ^1.8.1
 
 dev_dependencies:
   flutter_test:

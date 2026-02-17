@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:dynamic_color/dynamic_color.dart';
 import 'providers/type_bridge_provider.dart';
 import 'screens/bridge_screen.dart';
 import 'screens/input_screen.dart';
@@ -24,15 +25,53 @@ class TypeBridgeApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<TypeBridgeProvider>(context);
+    return Consumer<TypeBridgeProvider>(
+      builder: (context, provider, child) {
+        return DynamicColorBuilder(
+          builder: (lightDynamic, darkDynamic) {
+            ColorScheme lightColorScheme;
+            ColorScheme darkColorScheme;
 
-    return MaterialApp(
-      title: 'TypeBridge',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme(),
-      darkTheme: AppTheme.darkTheme(),
-      themeMode: provider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
-      home: const MainScreen(),
+            if (lightDynamic != null &&
+                darkDynamic != null &&
+                provider.useDynamicColor) {
+              // Re-seed with extracted primary to ensure all container variants are populated
+              lightColorScheme = ColorScheme.fromSeed(
+                seedColor: lightDynamic.primary,
+                brightness: Brightness.light,
+              ).harmonized();
+              darkColorScheme = ColorScheme.fromSeed(
+                seedColor: darkDynamic.primary,
+                brightness: Brightness.dark,
+              ).harmonized();
+            } else {
+              lightColorScheme = ColorScheme.fromSeed(
+                seedColor: provider.seedColor,
+                brightness: Brightness.light,
+              );
+              darkColorScheme = ColorScheme.fromSeed(
+                seedColor: provider.seedColor,
+                brightness: Brightness.dark,
+              );
+            }
+
+            return MaterialApp(
+              title: 'TypeBridge',
+              debugShowCheckedModeBanner: false,
+              theme: AppTheme.lightTheme(
+                seedColor: provider.seedColor,
+                colorScheme: lightColorScheme,
+              ),
+              darkTheme: AppTheme.darkTheme(
+                seedColor: provider.seedColor,
+                colorScheme: darkColorScheme,
+              ),
+              themeMode: provider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+              home: const MainScreen(),
+            );
+          },
+        );
+      },
     );
   }
 }

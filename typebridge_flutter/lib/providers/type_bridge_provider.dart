@@ -64,6 +64,8 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   bool _isRealtime = false;
   bool _isDarkMode = false;
+  bool _useDynamicColor = false;
+  Color _seedColor = const Color(0xFF2563EB);
   String? _deviceId;
   String? _deviceName; // Local device name
   String? _remoteServerName; // Connected server name
@@ -117,6 +119,8 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
   List<QuickPhrase> get quickPhrases => _quickPhrases;
   int get totalChars => _totalChars;
   int get todayChars => _todayChars;
+  Color get seedColor => _seedColor;
+  bool get useDynamicColor => _useDynamicColor;
 
   TypeBridgeProvider() {
     WidgetsBinding.instance.addObserver(this);
@@ -154,7 +158,12 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
     _deviceId = prefs.getString('device_id');
     _deviceName = prefs.getString('device_name');
     _isDarkMode = prefs.getBool('is_dark_mode') ?? false;
+    _useDynamicColor = prefs.getBool('use_dynamic_color') ?? false;
     _injectionMethod = prefs.getString('injection_method') ?? 'unicode';
+    final savedColor = prefs.getInt('seed_color');
+    if (savedColor != null) {
+      _seedColor = Color(savedColor);
+    }
 
     if (_deviceId == null) {
       DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
@@ -300,6 +309,20 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
     _isDarkMode = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('is_dark_mode', value);
+    notifyListeners();
+  }
+
+  void setThemeColor(Color color) async {
+    _seedColor = color;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('seed_color', color.toARGB32());
+    notifyListeners();
+  }
+
+  void setUseDynamicColor(bool value) async {
+    _useDynamicColor = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('use_dynamic_color', value);
     notifyListeners();
   }
 

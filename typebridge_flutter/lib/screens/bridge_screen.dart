@@ -179,8 +179,7 @@ class _BridgeScreenState extends State<BridgeScreen> {
                   child: Text(
                     '没有找到设备？试试手动输入',
                     style: theme.textTheme.labelMedium?.copyWith(
-                      color: theme.colorScheme.primary.withOpacity(0.6),
-                      decoration: TextDecoration.underline,
+                      color: theme.colorScheme.primary.withValues(alpha: 0.6),
                     ),
                   ),
                 ),
@@ -207,7 +206,7 @@ class _BridgeScreenState extends State<BridgeScreen> {
           color: theme.colorScheme.surfaceContainer,
           borderRadius: BorderRadius.circular(32),
           border: Border.all(
-              color: theme.colorScheme.outlineVariant.withOpacity(0.2)),
+              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.2)),
         ),
         child: Column(
           children: [
@@ -222,7 +221,7 @@ class _BridgeScreenState extends State<BridgeScreen> {
                       boxShadow: [
                         if (isConnected)
                           BoxShadow(
-                              color: statusColor.withOpacity(0.4),
+                              color: statusColor.withValues(alpha: 0.4),
                               blurRadius: 8,
                               spreadRadius: 2)
                       ]),
@@ -264,7 +263,7 @@ class _BridgeScreenState extends State<BridgeScreen> {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.surfaceContainerHighest
-                      .withOpacity(0.5),
+                      .withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Row(
@@ -378,11 +377,12 @@ class _BridgeScreenState extends State<BridgeScreen> {
                 borderRadius: BorderRadius.circular(24),
                 side: isOnline
                     ? BorderSide(
-                        color: theme.colorScheme.primary.withOpacity(0.15),
+                        color:
+                            theme.colorScheme.primary.withValues(alpha: 0.15),
                         width: 1.5)
                     : BorderSide(
-                        color:
-                            theme.colorScheme.outlineVariant.withOpacity(0.1),
+                        color: theme.colorScheme.outlineVariant
+                            .withValues(alpha: 0.1),
                         width: 1),
               ),
               child: InkWell(
@@ -401,9 +401,9 @@ class _BridgeScreenState extends State<BridgeScreen> {
                         decoration: BoxDecoration(
                           color: isOnline
                               ? theme.colorScheme.primaryContainer
-                                  .withOpacity(0.7)
+                                  .withValues(alpha: 0.7)
                               : theme.colorScheme.surfaceContainerHighest
-                                  .withOpacity(0.5),
+                                  .withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(18),
                         ),
                         child: Icon(
@@ -456,13 +456,13 @@ class _BridgeScreenState extends State<BridgeScreen> {
                                     theme,
                                     device.ip,
                                     theme.colorScheme.onSurfaceVariant
-                                        .withOpacity(0.6)),
+                                        .withValues(alpha: 0.6)),
                                 if (device.os != null && device.os!.isNotEmpty)
                                   _buildTag(
                                       theme,
                                       device.os!.toUpperCase(),
                                       theme.colorScheme.primary
-                                          .withOpacity(0.8)),
+                                          .withValues(alpha: 0.8)),
                               ],
                             ),
                           ],
@@ -554,9 +554,9 @@ class _BridgeScreenState extends State<BridgeScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.3), width: 0.5),
+        border: Border.all(color: color.withValues(alpha: 0.3), width: 0.5),
       ),
       child: Text(
         label,

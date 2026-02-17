@@ -243,8 +243,8 @@ class InputScreen extends StatelessWidget {
         style: theme.textTheme.bodyLarge?.copyWith(fontSize: 17, height: 1.6),
         decoration: InputDecoration(
           hintText: provider.isRealtime ? '输入内容将自动发送到电脑...' : '在这里输入要发送的文字...',
-          hintStyle:
-              TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.35)),
+          hintStyle: TextStyle(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.35)),
           border: InputBorder.none,
           enabledBorder: InputBorder.none,
           focusedBorder: InputBorder.none,

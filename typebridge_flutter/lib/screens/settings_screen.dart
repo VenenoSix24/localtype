@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/type_bridge_provider.dart';
+import '../theme/app_theme.dart';
+import '../screens/theme_screen.dart';
 
 /// 设置页面
 /// 包含外观、注入方式、连接信息和关于等设置项
@@ -23,19 +25,83 @@ class SettingsScreen extends StatelessWidget {
           _buildSectionHeader(theme, '外观'),
           const SizedBox(height: 8),
           Card(
-            child: SwitchListTile(
-              secondary: Icon(
-                  provider.isDarkMode
-                      ? Icons.dark_mode_rounded
-                      : Icons.light_mode_rounded,
-                  color: theme.colorScheme.primary),
-              title: const Text('深色模式'),
-              subtitle: Text(
-                provider.isDarkMode ? '夜间护眼' : '明亮清晰',
-                style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
-              ),
-              value: provider.isDarkMode,
-              onChanged: (val) => provider.toggleTheme(val),
+            child: Column(
+              children: [
+                SwitchListTile(
+                  secondary: Icon(
+                      provider.isDarkMode
+                          ? Icons.dark_mode_rounded
+                          : Icons.light_mode_rounded,
+                      color: theme.colorScheme.primary),
+                  title: const Text('深色模式'),
+                  subtitle: Text(
+                    provider.isDarkMode ? '夜间护眼' : '明亮清晰',
+                    style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                  ),
+                  value: provider.isDarkMode,
+                  onChanged: (val) => provider.toggleTheme(val),
+                ),
+                const Divider(height: 1, indent: 16, endIndent: 16),
+                ListTile(
+                  leading: Icon(Icons.palette_rounded,
+                      color: theme.colorScheme.primary),
+                  title: const Text('主题配色'),
+                  subtitle: Text(
+                    provider.useDynamicColor ? '动态取色已开启' : '点击选择主题颜色',
+                    style: TextStyle(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontSize: 13),
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (!provider.useDynamicColor)
+                        SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: ClipOval(
+                            child: Builder(builder: (context) {
+                              final quadrants = AppTheme.getQuadrantColors(
+                                  provider.seedColor,
+                                  isDark: provider.isDarkMode);
+                              return Column(
+                                children: [
+                                  Expanded(
+                                      child: Row(children: [
+                                    Expanded(
+                                        child: Container(color: quadrants[0])),
+                                    Expanded(
+                                        child: Container(color: quadrants[1])),
+                                  ])),
+                                  Expanded(
+                                      child: Row(children: [
+                                    Expanded(
+                                        child: Container(color: quadrants[2])),
+                                    Expanded(
+                                        child: Container(color: quadrants[3])),
+                                  ])),
+                                ],
+                              );
+                            }),
+                          ),
+                        )
+                      else
+                        Icon(Icons.auto_awesome_rounded,
+                            size: 20,
+                            color: theme.colorScheme.primary.withOpacity(0.5)),
+                      const SizedBox(width: 8),
+                      const Icon(Icons.chevron_right_rounded),
+                    ],
+                  ),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const ThemeScreen()),
+                    );
+                  },
+                ),
+              ],
             ),
           ),
 
