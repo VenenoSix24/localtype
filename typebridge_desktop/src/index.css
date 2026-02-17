@@ -1,14 +1,14 @@
 @import "tailwindcss";
 
-/* LocalType Design System - Vision OS / Modern Native */
+/* LocalType 设计系统 - 基于 Vision OS / 现代原生风格 */
 @theme {
   /* 核心背景：磨砂玻璃体系 */
   --color-bg-deep: #F5F5F7;
-  /* Light Mode: Off-white base */
+  /* 浅色模式：偏白基底 */
   --color-bg-glass: rgba(255, 255, 255, 0.72);
-  /* High transmission glass */
+  /* 高透玻璃感 */
   --color-bg-card: rgba(255, 255, 255, 0.65);
-  /* Floating cards */
+  /* 悬浮卡片 */
   --color-bg-card-hover: rgba(255, 255, 255, 0.85);
 
   /* 边框与光效 */
@@ -17,20 +17,20 @@
   --color-shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.08);
   /* Soft diffuse shadow */
 
-  /* 文本系统 - San Francisco */
+  /* 文本系统 - San Francisco / 苹方 */
   --color-text-primary: #1D1D1F;
-  /* Apple Black */
+  /* 苹果黑 */
   --color-text-secondary: #86868B;
-  /* Apple Grey */
+  /* 苹果灰 */
   --color-text-muted: #AEAEB2;
 
   /* 功能色 */
   --color-accent-blue: #007AFF;
-  /* System Blue */
+  /* 系统蓝 */
   --color-accent-green: #34C759;
-  /* System Green */
+  /* 系统绿 */
   --color-accent-destruct: #FF3B30;
-  /* System Red */
+  /* 系统红 */
 
   --font-heading: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
   --font-body: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
@@ -39,7 +39,7 @@
   --ease-spring: cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
-/* Dark Mode Overrides */
+/* 深色模式覆盖 */
 :root.dark {
   --color-bg-deep: #000000;
   --color-bg-glass: rgba(28, 28, 30, 0.75);
@@ -69,7 +69,7 @@ body {
   transition: background-color 0.3s ease;
 }
 
-/* Glass Utility - 核心磨砂效果 */
+/* Glass 实用类 - 核心磨砂效果 */
 .glass-panel {
   background: var(--color-bg-glass);
   backdrop-filter: blur(24px) saturate(180%);
@@ -94,7 +94,7 @@ body {
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.06);
 }
 
-/* Waveform Animation */
+/* 波形动画 */
 .waveform-bar {
   width: 4px;
   background-color: var(--color-accent-blue);
@@ -117,7 +117,7 @@ body {
   }
 }
 
-/* Levitation Animation */
+/* 浮动动画 */
 @keyframes levitate {
 
   0%,
@@ -143,7 +143,7 @@ body {
   scrollbar-width: none;
 }
 
-/* Base Animations */
+/* 基础动画 */
 @keyframes scale-in {
   0% {
     transform: scale(0.95);

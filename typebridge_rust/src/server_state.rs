@@ -16,13 +16,12 @@ pub struct TrustedClient {
     pub id: String,
     pub name: String,
     pub token: String,
-    pub last_seen: u64,
 }
 
 #[derive(Clone)]
 pub struct ServerState {
     pub trusted_clients: Arc<Mutex<HashMap<String, TrustedClient>>>,
-    pub pending_pair_codes: Arc<Mutex<HashMap<String, (String, Instant)>>>, // ClientID -> (Code, Expiry)
+    pub pending_pair_codes: Arc<Mutex<HashMap<String, (String, Instant)>>>, // 客户端 ID -> (验证码, 过期时间)
     config_path: PathBuf,
 }
 
@@ -60,7 +59,7 @@ impl ServerState {
     pub fn is_trusted(&self, client_id: &str, token: &str) -> bool {
         let clients = self.trusted_clients.lock().unwrap();
         if let Some(client) = clients.get(client_id) {
-            // Simple token match. In production, use hash comparison.
+            // 简单令牌匹配。生产环境中应使用哈希对比。
             return client.token == token;
         }
         false
@@ -90,25 +89,24 @@ impl ServerState {
                 return None;
             }
             if stored_code == code {
-                // Generate Token
+                // 生成令牌
                 let token: String = rand::thread_rng()
                     .sample_iter(&rand::distributions::Alphanumeric)
                     .take(32)
                     .map(char::from)
                     .collect();
 
-                // Trust client
+                // 信任客户端
                 let mut clients = self.trusted_clients.lock().unwrap();
                 clients.insert(client_id.to_string(), TrustedClient {
                     id: client_id.to_string(),
                     name: client_name.to_string(),
                     token: token.clone(),
-                    last_seen: 0, 
                 });
                 
-                // Save to disk
-                drop(clients); // Unlock before saving to avoid deadlock if save takes long (though here it's fine)
-                let _ = self.save_trusted_clients(); // Ignore error for now
+                // 保存到磁盘
+                drop(clients); // 在保存前解锁以避免潜在死锁
+                let _ = self.save_trusted_clients(); // 暂时忽略错误
 
                 pending.remove(client_id);
                 return Some(token);

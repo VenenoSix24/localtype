@@ -20,7 +20,7 @@ use enigo::{Enigo, Settings, Keyboard, Key, Direction};
 use tokio_rustls::rustls::{ServerConfig, Certificate, PrivateKey};
 use tokio_rustls::TlsAcceptor;
 
-// Core configuration
+// 核心配置
 const WSS_PORT: u16 = 8765;
 const UDP_PORT: u16 = 45678;
 
@@ -29,7 +29,7 @@ use server_state::ServerState;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init_from_env(env_logger::Env::default().default_filter_or("info"));
-    info!("LocalType Server Starting...");
+    info!("LocalType 服务器正在启动...");
 
     let event_loop = EventLoopBuilder::new().build();
 
@@ -54,16 +54,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let is_paused = Arc::new(AtomicBool::new(false));
     let is_paused_server = is_paused.clone();
 
-    // Use a channel to send status updates to the main thread
+    // 使用信道向主线程发送状态更新
     let (status_tx, mut status_rx) = tokio::sync::mpsc::unbounded_channel::<String>();
 
-    // Spawn server thread
+    // 启动服务器线程
     std::thread::spawn(move || {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
             let state = ServerState::new();
 
-            // TLS Configuration
+            // TLS 配置
             let tls_acceptor = match get_tls_acceptor() {
                 Ok(a) => a,
                 Err(e) => {
@@ -72,14 +72,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             };
 
-            // Start UDP Discovery
+            // 启动 UDP 发现服务
             tokio::spawn(async move {
                 if let Err(e) = run_discovery_service().await {
                     error!("UDP Discovery Error: {}", e);
                 }
             });
 
-            // Start WSS Server
+            // 启动 WSS 服务器
             let addr = format!("0.0.0.0:{}", WSS_PORT);
             let listener = TcpListener::bind(&addr).await.unwrap();
             info!("WSS listening on: {}", addr);
@@ -102,16 +102,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
     });
 
-    // Run Event Loop
+    // 运行事件循环
     let menu_channel = MenuEvent::receiver();
     
     event_loop.run(move |_event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
 
-        // Poll for menu events
+        // 轮询菜单事件
         if let Ok(event) = menu_channel.try_recv() {
             if event.id == quit_i.id() {
-                tray_icon.take(); // Remove icon
+                tray_icon.take(); // 移除图标
                 *control_flow = ControlFlow::Exit;
             } else if event.id == pause_i.id() {
                 let current = is_paused.load(Ordering::Relaxed);
@@ -123,7 +123,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
 
-        // Poll for status updates
+        // 轮询状态更新
         while let Ok(new_status) = status_rx.try_recv() {
             let _ = status_i.set_text(new_status);
         }
@@ -135,16 +135,16 @@ fn load_icon() -> tray_icon::Icon {
     let height = 32;
     let mut rgba = Vec::with_capacity((width * height * 4) as usize);
     
-    // Indigo-like color for the background (Material 3 seed color theme)
+    // 类似 Indigo 的背景色 (Material 3 种子色主题)
     let bg_r = 63;
     let bg_g = 81;
     let bg_b = 181;
 
     for y in 0..height {
         for x in 0..width {
-            // Draw a blocky white 'T'
-            let is_t = (y >= 6 && y <= 10 && x >= 6 && x <= 26) // Top bar of T
-                    || (y >= 10 && y <= 26 && x >= 14 && x <= 18); // Vertical bar of T
+            // 绘制块状白色的 'T'
+            let is_t = (y >= 6 && y <= 10 && x >= 6 && x <= 26) // T 的横杠
+                    || (y >= 10 && y <= 26 && x >= 14 && x <= 18); // T 的竖杠
             
             if is_t {
                 rgba.extend_from_slice(&[255, 255, 255, 255]);
@@ -164,7 +164,7 @@ async fn run_discovery_service() -> std::io::Result<()> {
     let mut buf = [0u8; 1024];
 
     loop {
-        // Find local IP address to respond with
+        // 获取本地 IP 以便响应
         let local_ip = local_ip_address::local_ip().unwrap_or("127.0.0.1".parse().unwrap());
         
         let (len, addr) = socket.recv_from(&mut buf).await?;
@@ -186,20 +186,20 @@ async fn accept_connection<S>(
     status_tx: tokio::sync::mpsc::UnboundedSender<String>,
     is_paused: Arc<AtomicBool>,
 ) where S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin {
-    info!("Incoming connection from: {}", addr);
-    let _ = status_tx.send(format!("Status: Connecting {}", addr.ip()));
+    info!("收到新连接: {}", addr);
+    let _ = status_tx.send(format!("状态: 正在连接 {}", addr.ip()));
 
     let ws_stream = match tokio_tungstenite::accept_async(stream).await {
         Ok(ws) => ws,
         Err(e) => {
-            error!("Error during the websocket handshake occurred: {}", e);
-             let _ = status_tx.send("Status: Handshake Error".to_string());
+            error!("WebSocket 握手失败: {}", e);
+             let _ = status_tx.send("状态: 握手错误".to_string());
             return;
         }
     };
 
-    info!("WebSocket connection established: {}", addr);
-    let _ = status_tx.send(format!("Status: Connected {}", addr.ip()));
+    info!("WebSocket 连接已建立: {}", addr);
+    let _ = status_tx.send(format!("状态: 已连接 {}", addr.ip()));
 
     let (mut write, mut read) = ws_stream.split();
     let mut last_text = String::new();
@@ -248,15 +248,15 @@ async fn accept_connection<S>(
                             },
                             ClientMessage::VerifyPairing { device_id, code, device_name } => {
                                 if let Some(token) = state.verify_pairing_code(&device_id, &code, &device_name) {
-                                    info!("Pairing successful for {}", device_name);
+                                    info!("设备 {} 配对成功", device_name);
                                     authenticated_device_name = Some(device_name.clone());
                                     let _ = status_tx.send(format!("已连接: {}", device_name));
                                     
                                     let response = serde_json::to_string(&ServerResponse::PairingSuccess { token }).unwrap();
                                     let _ = write.send(Message::Text(response)).await;
                                 } else {
-                                    info!("Pairing failed for {}", device_name);
-                                    let response = serde_json::to_string(&ServerResponse::Error { message: "Invalid code".into() }).unwrap();
+                                    info!("设备 {} 配对失败", device_name);
+                                    let response = serde_json::to_string(&ServerResponse::Error { message: "验证码无效".into() }).unwrap();
                                     let _ = write.send(Message::Text(response)).await;
                                 }
                             },
@@ -304,8 +304,8 @@ async fn accept_connection<S>(
                                         last_text.clear();
                                     }
                                 } else {
-                                    // Not authenticated
-                                    let response = serde_json::to_string(&ServerResponse::Error{ message: "Not authenticated".into() }).unwrap();
+                                    // 未经过身份验证
+                                    let response = serde_json::to_string(&ServerResponse::Error{ message: "尚未认证".into() }).unwrap();
                                     let _ = write.send(Message::Text(response)).await;
                                 }
                             },
@@ -366,7 +366,7 @@ async fn perform_injection(text: &str, method: &str) {
 }
 
 async fn inject_text(text: &str) {
-    info!("Injecting text ({} chars)", text.len());
+    info!("正在注入文本 ({} 字符)", text.len());
     let text = text.to_string();
     std::thread::spawn(move || {
         let mut enigo = match Enigo::new(&Settings::default()) {
@@ -400,7 +400,7 @@ async fn inject_text(text: &str) {
 }
 
 async fn inject_via_clipboard(text: &str) {
-    info!("Injecting via clipboard ({} chars)", text.len());
+    info!("正在通过剪贴板注入 ({} 字符)", text.len());
     let text = text.to_string();
     std::thread::spawn(move || {
         let mut clipboard = arboard::Clipboard::new().expect("Failed to open clipboard");
@@ -449,7 +449,7 @@ fn get_tls_acceptor() -> anyhow::Result<TlsAcceptor> {
         .with_safe_defaults()
         .with_no_client_auth()
         .with_single_cert(cert_chain, priv_key)
-        .map_err(|e| anyhow::anyhow!("TLS Config error: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("TLS 配置错误: {}", e))?;
 
     Ok(TlsAcceptor::from(Arc::new(server_config)))
 }

@@ -3,9 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/local_type_provider.dart';
 
-/// 连接页 —— Connection Hub (v2)
-/// Top: Status Panel
-/// Bottom: Nearby & Saved Devices (Card Style)
+/// 连接页面 —— 连接中心
+/// 顶部：状态面板
+/// 底部：附近和已保存的设备（卡片样式）
 class ConnectionScreen extends StatefulWidget {
   const ConnectionScreen({super.key});
 
@@ -22,7 +22,7 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
       provider.onPairingRequired = (msg) {
         _showPairingDialog(context);
       };
-      // Start discovery automatically
+      // 自动开始扫描
       _startScan();
     });
   }
@@ -129,12 +129,12 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
       ),
       body: CustomScrollView(
         slivers: [
-          // Top: Status Panel
+          // 顶部：状态面板
           SliverToBoxAdapter(
             child: _buildStatusPanel(provider, theme, isConnected),
           ),
 
-          // List Header
+          // 列表标题
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
@@ -172,10 +172,10 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
             ),
           ),
 
-          // Device List
+          // 设备列表
           _buildDeviceList(provider, theme),
 
-          // Manual Entry Link Footer
+          // 手动输入入口页脚
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.only(top: 12, bottom: 40),
@@ -315,7 +315,7 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
     final discovered = provider.discoveredDevices;
     final paired = provider.pairedDevices;
 
-    // Merge results: Discovered ones take priority
+    // 合并结果：已扫描到的设备优先级高于仅保存在本地的设备
     final allDevices = <String, DiscoveredDevice>{};
     for (var d in paired) {
       allDevices[d.ip] = d;
@@ -326,10 +326,10 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
 
     final sortedItems = allDevices.values.toList()
       ..sort((a, b) {
-        // Connected one first
+        // 已连接的排在最前
         if (provider.connectedIp == a.ip) return -1;
         if (provider.connectedIp == b.ip) return 1;
-        // Online ones second
+        // 在线的排在第二
         bool aOnline = discovered.any((d) => d.ip == a.ip);
         bool bOnline = discovered.any((d) => d.ip == b.ip);
         if (aOnline && !bOnline) return -1;
@@ -400,7 +400,7 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                       padding: const EdgeInsets.all(16),
                       child: Row(
                         children: [
-                          // Leading Icon Container
+                          // 图标容器
                           Container(
                             width: 56,
                             height: 56,
@@ -421,7 +421,7 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                             ),
                           ),
                           const SizedBox(width: 16),
-                          // Info Section
+                          // 信息区块
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -475,7 +475,7 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                               ],
                             ),
                           ),
-                          // Trailing section
+                          // 尾部操作区
                           Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [

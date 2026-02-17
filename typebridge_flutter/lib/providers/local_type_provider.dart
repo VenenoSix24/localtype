@@ -87,13 +87,12 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
   bool _useDynamicColor = false;
   Color _seedColor = const Color(0xFF2563EB);
   String? _deviceId;
-  String? _deviceName; // Local device name
-  String? _remoteServerName; // Connected server name
+  String? _deviceName; // 本地设备名称
+  String? _remoteServerName; // 已连接的服务端名称
   String? _authToken;
 
   Timer? _heartbeatTimer;
   Timer? _reconnectTimer;
-  Timer? _debounceTimer;
   int _reconnectAttempts = 0;
   String? _lastConnectedIp;
   String _injectionMethod = 'unicode';
@@ -127,9 +126,8 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
   /// 配对对话框回调
   Function(String)? onPairingRequired;
 
-  // Getters
+  // Getter 方法
   ConnectionStatus get status => _status;
-  ConnectionStatus get connectionStatus => _status;
   AuthStatus get authStatus => _authStatus;
   List<String> get logs => _logs;
   bool get isDarkMode => _isDarkMode;
@@ -150,6 +148,12 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
   String get bubbleColorType => _bubbleColorType;
   List<MessageModel> get messages => List.unmodifiable(_messages);
 
+  /// 批量删除消息
+  void deleteMessages(List<String> ids) {
+    _messages.removeWhere((m) => ids.contains(m.id));
+    notifyListeners();
+  }
+
   LocalTypeProvider() {
     WidgetsBinding.instance.addObserver(this);
     _init();
@@ -160,7 +164,6 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _stopHeartbeat();
     _stopReconnect();
-    _debounceTimer?.cancel();
     _scanTimer?.cancel();
     _channel?.sink.close();
     ipController.dispose();
@@ -242,7 +245,7 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  // ==================== Paired Devices Logic ====================
+  // ==================== 已配对设备逻辑 ====================
 
   Future<void> _loadPairedDevices() async {
     final prefs = await SharedPreferences.getInstance();
@@ -302,8 +305,7 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> removePairedDevice(String ip) async {
-    // Note: We no longer unpair automatically when removing from list
-    // Pairing status (token) is independent of the favorite list
+    // 配对状态（Token）独立于收藏列表
 
     _pairedDevices.removeWhere((d) => d.ip == ip);
     final prefs = await SharedPreferences.getInstance();
@@ -331,7 +333,7 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  // ==================== Logs ====================
+  // ==================== 日志逻辑 ====================
 
   void addLog(String log) {
     final now = DateTime.now();
@@ -342,7 +344,7 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  // ==================== Toggles ====================
+  // ==================== 开关逻辑 ====================
 
   void toggleTheme(bool value) async {
     _isDarkMode = value;
@@ -386,7 +388,7 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  // ==================== Discovery ====================
+  // ==================== 设备发现 ====================
 
   Future<void> startDeviceDiscovery() async {
     if (_isScanning) return;
@@ -439,7 +441,7 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
                 addLog('发现设备: $serverName ($ip) [$osName]');
                 notifyListeners();
 
-                // Update paired device info if it matches
+                // 如果发现的设备详情有更新，同步到已配对列表
                 final pairedIndex =
                     _pairedDevices.indexWhere((d) => d.ip == ip);
                 if (pairedIndex != -1) {
@@ -473,7 +475,7 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
     await startDeviceDiscovery();
   }
 
-  // ==================== Connection ====================
+  // ==================== 连接逻辑 ====================
 
   Future<void> connect(String ip) async {
     if (ip.isEmpty) {
@@ -517,8 +519,8 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
 
       _status = ConnectionStatus.connected;
 
-      // Determine remote name
-      String nameToSave = 'Desktop ($ip)';
+      // 确定远程设备显示名称
+      String nameToSave = '桌面端 ($ip)';
       final discoveredMatch = _discoveredDevices.where((d) => d.ip == ip);
       if (discoveredMatch.isNotEmpty) {
         nameToSave = discoveredMatch.first.name;
@@ -550,7 +552,7 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
         _requestPairing();
       }
 
-      // NO automatic saving here anymore per user request
+      // 此处不再自动保存
 
       _channel!.stream.listen(
         (message) {
@@ -769,7 +771,7 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
     _reconnectAttempts = 0;
   }
 
-  // ==================== Send Text ====================
+  // ==================== 文字发送 ====================
 
   void sendText() {
     if (_status != ConnectionStatus.connected ||
@@ -883,7 +885,7 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  // ==================== Phrases & Stats ====================
+  // ==================== 快捷短语与统计 ====================
 
   Future<void> addPhrase(String label, String content) async {
     final phrase = QuickPhrase(

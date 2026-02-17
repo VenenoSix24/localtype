@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 /// LocalType 主题系统
 /// 基于 MD3 动态色彩方案，使用蓝色系 seed color
 class AppTheme {
-  // Predefined theme colors for MD3 (Bilibili-style rich palette)
+  // 为 MD3 预定义的配色
   static const List<Map<String, dynamic>> themeColors = [
     {'name': '默认绿', 'color': Color(0xFF4CAF50)},
     {'name': '粉红色', 'color': Color(0xFFE91E63)},
@@ -30,7 +30,7 @@ class AppTheme {
 
   static const defaultSeedColor = Color(0xFF4CAF50);
 
-  /// Helper to get quadrant colors for a seed color (Primary, Teritary, Secondary, Surface)
+  /// 辅助方法：获取种子颜色的象限色彩（主色、三级色、二级色、表面色）
   static List<Color> getQuadrantColors(Color seed, {bool isDark = false}) {
     final scheme = ColorScheme.fromSeed(
       seedColor: seed,

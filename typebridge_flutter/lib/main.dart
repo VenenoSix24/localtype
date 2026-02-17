@@ -36,7 +36,7 @@ class LocalTypeApp extends StatelessWidget {
             if (lightDynamic != null &&
                 darkDynamic != null &&
                 provider.useDynamicColor) {
-              // Re-seed with extracted primary to ensure all container variants are populated
+              // 使用提取的主色重新生成 Seed，以确保所有容器变体都被正确填充
               lightColorScheme = ColorScheme.fromSeed(
                 seedColor: lightDynamic.primary,
                 brightness: Brightness.light,

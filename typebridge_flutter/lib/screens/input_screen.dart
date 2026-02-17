@@ -93,7 +93,7 @@ class _InputScreenState extends State<InputScreen> {
         }
         break;
       case 'delete':
-        // TODO: 实现批量删除
+        provider.deleteMessages(_selectedIds.toList());
         _clearSelection();
         break;
       case 'resend':
@@ -112,15 +112,24 @@ class _InputScreenState extends State<InputScreen> {
     final isConnected = provider.status == ConnectionStatus.connected &&
         provider.authStatus == AuthStatus.authenticated;
 
+    // 修复：不在 build 方法中直接操作 AnimatedListState 这种 Mutation 式逻辑
     if (isConnected) {
       final currentCount = provider.messages.length;
       if (currentCount > _lastMessageCount) {
         final diff = currentCount - _lastMessageCount;
-        for (int i = 0; i < diff; i++) {
-          _listKey.currentState?.insertItem(i);
-        }
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_listKey.currentState != null) {
+            for (int i = 0; i < diff; i++) {
+              _listKey.currentState!.insertItem(i);
+            }
+          }
+        });
+        _lastMessageCount = currentCount;
+      } else if (currentCount < _lastMessageCount) {
+        // 批量删除时，简单的做法是刷新整体状态或清空后重新分配
+        // 本次优先保证不卡死，TODO: 完善 removeItem 动画细节
+        _lastMessageCount = currentCount;
       }
-      _lastMessageCount = currentCount;
     }
 
     // 使用 PopScope 拦截手机返回键/手势
@@ -601,7 +610,7 @@ class _InputScreenState extends State<InputScreen> {
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
-      barrierLabel: 'Fullscreen Input',
+      barrierLabel: '全屏输入',
       transitionDuration: const Duration(milliseconds: 300),
       pageBuilder: (ctx, anim1, anim2) {
         return Scaffold(

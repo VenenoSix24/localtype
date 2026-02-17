@@ -2,7 +2,7 @@
 // NOTE: 所有核心网络逻辑（WSS、UDP、TLS）在 Tauri setup 钩子中启动，
 // 通过 AppHandle.emit() 向前端推送状态更新。
 
-// Prevents additional console window on Windows in release
+// 防止在 Windows 发布模式下弹出控制台窗口
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::{
@@ -54,12 +54,6 @@ struct ConnectionPayload {
 struct PairingPayload {
     code: String,
     device_name: String,
-}
-
-#[derive(Clone, Serialize)]
-struct ServerInfoPayload {
-    ip: String,
-    port: u16,
 }
 
 #[derive(Clone, Serialize)]
@@ -364,10 +358,10 @@ async fn accept_connection<S>(
         },
     );
     let (mut ws_write, mut ws_read) = ws_stream.split();
-    let mut last_text = String::new();
     let mut authenticated_device_name: Option<String> = None;
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<String>();
     let session_id = state.next_session_id();
+    
 
     loop {
         tokio::select! {
@@ -454,7 +448,7 @@ async fn accept_connection<S>(
                                     } else {
                                         info!("配对失败: {}", device_name);
                                         let response = serde_json::to_string(&ServerResponse::Error {
-                                            message: "Invalid code".into(),
+                                            message: "验证码无效".into(),
                                         }).unwrap();
                                         let _ = ws_write.send(Message::Text(response)).await;
                                     }
@@ -506,7 +500,6 @@ async fn accept_connection<S>(
                                         
                                         // 执行注入
                                         perform_injection(&content, &injection_method).await;
-                                        last_text.clear();
 
                                         // 如果客户端提供了消息 ID，回传 ACK
                                         if let Some(id) = msg_id {
@@ -515,14 +508,13 @@ async fn accept_connection<S>(
                                         }
                                     } else {
                                         let response = serde_json::to_string(&ServerResponse::Error {
-                                            message: "Not authenticated".into(),
+                                            message: "尚未认证".into(),
                                         }).unwrap();
                                         let _ = ws_write.send(Message::Text(response)).await;
                                     }
                                 }
                                 ClientMessage::Reset => {
                                     info!("状态重置");
-                                    last_text.clear();
                                 }
                             },
                             Err(e) => error!("JSON 解析错误: {}", e),

@@ -20,7 +20,6 @@ pub struct TrustedClient {
     pub alias: Option<String>,
     pub os: Option<String>,
     pub token: String,
-    pub last_seen: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -161,7 +160,6 @@ impl ServerState {
                         alias: None,
                         os,
                         token: token.clone(),
-                        last_seen: 0,
                     },
                 );
 

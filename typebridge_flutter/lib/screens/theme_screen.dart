@@ -71,7 +71,7 @@ class ThemeScreen extends StatelessWidget {
                 color: theme.colorScheme.primary.withValues(alpha: 0.5)),
             const SizedBox(height: 16),
             Text(
-              '当前已开开启动态取色',
+              '当前已开启动态取色',
               style: theme.textTheme.titleMedium
                   ?.copyWith(fontWeight: FontWeight.bold),
             ),

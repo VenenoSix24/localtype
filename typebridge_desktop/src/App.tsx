@@ -7,10 +7,9 @@ import {
   Wifi, Activity, Smartphone, Power, Trash2, Edit2, ScrollText, CheckCircle2
 } from "lucide-react";
 
-// ====== Types ======
-// Note: Using 'any' for quick implementation based on user feedback refinements
+// ====== 类型定义 ======
 
-// ====== Theme Context ======
+// ====== 主题上下文 ======
 type ThemeMode = 'system' | 'light' | 'dark';
 interface ThemeContextType {
   theme: ThemeMode;
@@ -25,12 +24,12 @@ function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<ThemeMode>(() => (localStorage.getItem('theme') as ThemeMode) || 'system');
   const [currentTheme, setCurrentTheme] = useState<'light' | 'dark'>('dark');
 
-  // Simple theme application logic
+  // 主题应用逻辑
   useEffect(() => {
     localStorage.setItem('theme', theme);
     const root = window.document.documentElement;
 
-    // Remove both classes first
+    // 首先移除所有相关类
     root.classList.remove('light', 'dark');
 
     const computeTheme = () => {
@@ -44,7 +43,7 @@ function ThemeProvider({ children }: { children: ReactNode }) {
     root.classList.add(resolved);
     setCurrentTheme(resolved as 'light' | 'dark');
 
-    // Listener for system changes
+    // 监听系统主题变化
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
     const onChange = () => {
       if (theme === 'system') {
@@ -61,9 +60,16 @@ function ThemeProvider({ children }: { children: ReactNode }) {
   return <ThemeContext.Provider value={{ theme, setTheme, currentTheme }}>{children}</ThemeContext.Provider>;
 }
 
-// ====== Components ======
+// ====== 组件列表 ======
 
-function SidebarItem({ icon: Icon, active, onClick, to }: any) {
+interface SidebarItemProps {
+  icon: any;
+  active: boolean;
+  onClick?: () => void;
+  to?: string;
+}
+
+function SidebarItem({ icon: Icon, active, onClick, to }: SidebarItemProps) {
   const content = (
     <div className={`p-3 rounded-2xl transition-all duration-300 cursor-pointer mb-4 group relative flex items-center justify-center
       ${active ? 'bg-accent-blue text-white shadow-lg shadow-accent-blue/30' : 'text-text-secondary hover:bg-white/10 hover:text-text-primary'}`}
@@ -79,7 +85,7 @@ function SidebarItem({ icon: Icon, active, onClick, to }: any) {
 function Dashboard({ serverInfo, connectedCount, pairing, setPairing, pairingSuccess }: any) {
   return (
     <div className="flex flex-col h-full w-full max-w-4xl mx-auto relative z-10 px-8 py-6">
-      {/* Page Header */}
+      {/* 页面标题 */}
       <div className="flex items-center justify-between mb-10">
         <div>
           <h1 className="text-4xl font-black font-heading tracking-tighter text-text-primary">运行状态</h1>
@@ -93,7 +99,7 @@ function Dashboard({ serverInfo, connectedCount, pairing, setPairing, pairingSuc
         </div>
       </div>
 
-      {/* Hero Stats Grid - 2x2 or 4x1 */}
+      {/* 核心状态网格 - 2x2 或 4x1 */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
         <div className="glass-card p-6 rounded-4xl border-white/5 flex flex-col justify-between min-h-40">
           <div className="space-y-3">
@@ -131,10 +137,10 @@ function Dashboard({ serverInfo, connectedCount, pairing, setPairing, pairingSuc
         </div>
       </div>
 
-      {/* Bottom spacer for padding */}
+      {/* 底部留白 */}
       <div className="h-8" />
 
-      {/* Floating Pairing Overlay */}
+      {/* 浮动配对层 */}
       {pairing && (
         <div className="absolute inset-0 z-50 flex items-center justify-center p-8 bg-bg-deep/80 backdrop-blur-xl rounded-4xl animate-fade-in">
           <div className="glass-card w-full max-w-sm p-10 rounded-4xl text-center space-y-8 animate-scale-in border-accent-blue/40 border-2 shadow-[0_0_50px_rgba(59,130,246,0.3)]">
@@ -216,7 +222,7 @@ function DevicesPage({ devices, onRemoveDevice, onUpdateAlias }: any) {
                 <div className="flex items-center gap-3">
                   <div className={`p-2.5 rounded-xl relative ${device.current_ip ? 'bg-accent-green/10 text-accent-green' : 'bg-white/5 text-text-muted'}`}>
                     <Smartphone size={20} />
-                    {/* Status Dot on Icon Container */}
+                    {/* 图标容器上的状态点 */}
                     <div className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-bg-deep ${device.current_ip ? 'bg-accent-green' : 'bg-text-muted/40'}`} />
                   </div>
                   <div>
@@ -248,7 +254,7 @@ function DevicesPage({ devices, onRemoveDevice, onUpdateAlias }: any) {
                 </button>
               </div>
 
-              {/* Info Matrix (IP & OS) - Reverted to clean text style */}
+              {/* 信息矩阵 (IP & 操作系统) */}
               <div className="grid grid-cols-2 gap-4 pt-2">
                 <div className="space-y-1">
                   <p className="text-[10px] uppercase tracking-widest text-text-muted font-bold opacity-50 underline decoration-white/5 underline-offset-4">当前连接地址</p>
@@ -284,7 +290,7 @@ function SettingsPage({ onRefresh }: { onRefresh: () => void }) {
   const { theme, setTheme } = useContext(ThemeContext);
 
   useEffect(() => {
-    // Load config
+    // 加载配置
     invoke<any>("get_app_config").then(cfg => setDeviceName(cfg.device_name));
 
     import("@tauri-apps/plugin-autostart").then(async (autostart) => {
@@ -296,7 +302,7 @@ function SettingsPage({ onRefresh }: { onRefresh: () => void }) {
     try {
       await invoke("update_device_name", { name: deviceName });
       setSaved(true);
-      onRefresh(); // Trigger refresh in parent
+      onRefresh(); // 触发父组件刷新
       setTimeout(() => setSaved(false), 2000);
     } catch (e) {
       console.error(e);
@@ -318,7 +324,7 @@ function SettingsPage({ onRefresh }: { onRefresh: () => void }) {
       <h1 className="text-3xl font-bold font-heading tracking-tight">设置</h1>
 
       <div className="glass-card rounded-3xl overflow-hidden divide-y divide-border-subtle">
-        {/* Device Name */}
+        {/* 设备显示名称 */}
         <div className="p-6 space-y-4 hover:bg-white/5 transition">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-accent-blue/10 rounded-xl text-accent-blue"> <Monitor size={20} /> </div>
@@ -343,7 +349,7 @@ function SettingsPage({ onRefresh }: { onRefresh: () => void }) {
           </div>
         </div>
 
-        {/* Appearance */}
+        {/* 外观设置 */}
         <div className="p-6 flex items-center justify-between hover:bg-white/5 transition">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-accent-blue/10 rounded-xl text-accent-blue"> <Moon size={20} /> </div>
@@ -365,7 +371,7 @@ function SettingsPage({ onRefresh }: { onRefresh: () => void }) {
           </div>
         </div>
 
-        {/* Auto Start */}
+        {/* 开机自启 */}
         <div className="p-6 flex items-center justify-between hover:bg-white/5 transition">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-accent-green/10 rounded-xl text-accent-green"> <Power size={20} /> </div>
@@ -481,10 +487,10 @@ function AppLayout() {
     return () => { listeners.forEach(l => l.then(f => f())); };
   }, [fetchData]);
 
-  // Simple and clean main layout, no forced rounded corners or borders on the window itself
+  // 简洁的应用布局，不强制圆角或边框
   return (
     <div className="flex w-screen h-screen bg-bg-deep text-text-primary select-none overflow-hidden">
-      {/* Sidebar Rail */}
+      {/* 侧边栏 */}
       <aside data-tauri-drag-region className="w-24 bg-bg-glass backdrop-blur-2xl flex flex-col items-center py-8 z-20 border-r border-border-subtle">
         <div className="mb-10">
           <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${connectedCount > 0 ? 'bg-accent-green text-white shadow-lg shadow-accent-green/40' : 'bg-accent-blue/10 text-accent-blue'}`}>
@@ -500,9 +506,9 @@ function AppLayout() {
         </div>
       </aside>
 
-      {/* Main Content Area */}
+      {/* 主内容区 */}
       <main className="flex-1 relative flex flex-col overflow-hidden">
-        {/* Window Drag Area - Top Bar */}
+        {/* 窗口拖拽区域 - 顶栏 */}
         <div data-tauri-drag-region className="h-6 w-full shrink-0 flex items-center justify-between px-6 z-30">
         </div>
 

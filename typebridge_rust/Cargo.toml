@@ -19,7 +19,6 @@ enigo = "0.3.0"
 arboard = "3.3"
 native-dialog = "0.9"
 tokio-rustls = "0.24"
-rustls-pemfile = "1.0"
 rcgen = "0.11"
 
 [target.'cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))'.dependencies]
