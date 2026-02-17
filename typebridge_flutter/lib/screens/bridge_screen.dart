@@ -132,11 +132,6 @@ class _BridgeScreenState extends State<BridgeScreen> {
             onPressed: _startScan,
             tooltip: '重新扫描',
           ),
-          IconButton(
-            icon: const Icon(Icons.keyboard_rounded),
-            tooltip: '手动输入 IP',
-            onPressed: () => _showManualInputDialog(context, provider),
-          ),
         ],
       ),
       body: CustomScrollView(
@@ -164,8 +159,8 @@ class _BridgeScreenState extends State<BridgeScreen> {
                       style: theme.textTheme.labelSmall
                           ?.copyWith(color: theme.colorScheme.primary),
                     )
-                        .animate(onPlay: (c) => c.repeat())
-                        .fade(duration: 1.seconds),
+                        .animate(onPlay: (c) => c.repeat(reverse: true))
+                        .fadeOut(duration: 1200.ms, curve: Curves.easeInOut),
                 ],
               ),
             ),
@@ -173,6 +168,25 @@ class _BridgeScreenState extends State<BridgeScreen> {
 
           // Device List
           _buildDeviceList(provider, theme),
+
+          // Manual Entry Link Footer
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 12, bottom: 40),
+              child: Center(
+                child: TextButton(
+                  onPressed: () => _showManualInputDialog(context, provider),
+                  child: Text(
+                    '没有找到设备？试试手动输入',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: theme.colorScheme.primary.withOpacity(0.6),
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -190,17 +204,11 @@ class _BridgeScreenState extends State<BridgeScreen> {
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainer,
-            borderRadius: BorderRadius.circular(28),
-            border: Border.all(
-                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              )
-            ]),
+          color: theme.colorScheme.surfaceContainer,
+          borderRadius: BorderRadius.circular(32),
+          border: Border.all(
+              color: theme.colorScheme.outlineVariant.withOpacity(0.2)),
+        ),
         child: Column(
           children: [
             Row(
@@ -214,7 +222,7 @@ class _BridgeScreenState extends State<BridgeScreen> {
                       boxShadow: [
                         if (isConnected)
                           BoxShadow(
-                              color: statusColor.withValues(alpha: 0.4),
+                              color: statusColor.withOpacity(0.4),
                               blurRadius: 8,
                               spreadRadius: 2)
                       ]),
@@ -256,7 +264,7 @@ class _BridgeScreenState extends State<BridgeScreen> {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.surfaceContainerHighest
-                      .withValues(alpha: 0.5),
+                      .withOpacity(0.5),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Row(
@@ -341,6 +349,12 @@ class _BridgeScreenState extends State<BridgeScreen> {
               Text('请确保电脑端已启动且处于同一局域网',
                   style: theme.textTheme.bodySmall
                       ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+              const SizedBox(height: 24),
+              OutlinedButton.icon(
+                onPressed: () => _showManualInputDialog(context, provider),
+                icon: const Icon(Icons.keyboard_rounded, size: 18),
+                label: const Text('手动输入 IP 地址'),
+              ),
             ],
           ),
         ),
@@ -358,122 +372,140 @@ class _BridgeScreenState extends State<BridgeScreen> {
 
             return Card(
               elevation: 0,
-              color: isOnline
-                  ? theme.colorScheme.surfaceContainerHigh
-                  : theme.colorScheme.surfaceContainerLow
-                      .withValues(alpha: 0.5),
+              clipBehavior: Clip.antiAlias,
               margin: const EdgeInsets.only(bottom: 12),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(24),
                 side: isOnline
                     ? BorderSide(
-                        color: theme.colorScheme.primary.withValues(alpha: 0.2),
-                        width: 1)
-                    : BorderSide.none,
-              ),
-              child: ListTile(
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                leading: Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: isOnline
-                        ? theme.colorScheme.primaryContainer
-                        : theme.colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Icon(
-                    Icons.desktop_windows_rounded,
-                    color: isOnline
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.onSurfaceVariant,
-                    size: 24,
-                  ),
-                ),
-                title: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        device.name,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 16),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (isOnline)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.green.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const Text('在线',
-                            style: TextStyle(
-                                color: Colors.green,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold)),
-                      ),
-                  ],
-                ),
-                subtitle: Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    children: [
-                      _buildTag(theme, '#${device.ip.split('.').last}',
-                          theme.colorScheme.secondary),
-                      if (device.os != null && device.os!.isNotEmpty)
-                        _buildTag(
-                            theme,
-                            device.os!.toUpperCase(),
-                            device.os!.toLowerCase().contains('mac')
-                                ? Colors.grey
-                                : Colors.blue),
-                    ],
-                  ),
-                ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (provider.connectedIp == device.ip &&
-                        provider.status == ConnectionStatus.connected)
-                      Container(
-                        margin: const EdgeInsets.only(right: 8),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.green.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Text('已连接',
-                            style: TextStyle(
-                                color: Colors.green,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold)),
-                      ),
-                    IconButton(
-                      icon: Icon(
-                        isSaved
-                            ? Icons.star_rounded
-                            : Icons.star_outline_rounded,
+                        color: theme.colorScheme.primary.withOpacity(0.15),
+                        width: 1.5)
+                    : BorderSide(
                         color:
-                            isSaved ? Colors.orange : theme.colorScheme.outline,
-                      ),
-                      onPressed: () {
-                        provider.toggleFavorite(
-                            device.ip, device.name, device.os ?? '');
-                      },
-                    ),
-                    const Icon(Icons.chevron_right_rounded, size: 20),
-                  ],
-                ),
+                            theme.colorScheme.outlineVariant.withOpacity(0.1),
+                        width: 1),
+              ),
+              child: InkWell(
                 onTap: () {
                   HapticFeedback.lightImpact();
                   provider.connect(device.ip);
                 },
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      // Leading Icon Container
+                      Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          color: isOnline
+                              ? theme.colorScheme.primaryContainer
+                                  .withOpacity(0.7)
+                              : theme.colorScheme.surfaceContainerHighest
+                                  .withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: Icon(
+                          Icons.desktop_windows_rounded,
+                          color: isOnline
+                              ? theme.colorScheme.primary
+                              : theme.colorScheme.onSurfaceVariant,
+                          size: 28,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      // Info Section
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    device.name,
+                                    style:
+                                        theme.textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: -0.2,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                if (isOnline) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    width: 8,
+                                    height: 8,
+                                    decoration: const BoxDecoration(
+                                      color: Colors.green,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: [
+                                _buildTag(
+                                    theme,
+                                    device.ip,
+                                    theme.colorScheme.onSurfaceVariant
+                                        .withOpacity(0.6)),
+                                if (device.os != null && device.os!.isNotEmpty)
+                                  _buildTag(
+                                      theme,
+                                      device.os!.toUpperCase(),
+                                      theme.colorScheme.primary
+                                          .withOpacity(0.8)),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Trailing section
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 44,
+                            height: 44,
+                            child: IconButton(
+                              icon: Icon(
+                                isSaved
+                                    ? Icons.star_rounded
+                                    : Icons.star_outline_rounded,
+                                color: isSaved
+                                    ? Colors.orange
+                                    : theme.colorScheme.outline,
+                                size: 24,
+                              ),
+                              onPressed: () {
+                                provider.toggleFavorite(
+                                    device.ip, device.name, device.os ?? '');
+                              },
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                            ),
+                          ),
+                          if (provider.connectedIp == device.ip &&
+                              provider.status == ConnectionStatus.connected)
+                            const SizedBox(
+                              width: 44,
+                              child: Icon(Icons.link_rounded,
+                                  color: Colors.green, size: 20),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
               ),
             )
                 .animate()
@@ -522,9 +554,9 @@ class _BridgeScreenState extends State<BridgeScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withValues(alpha: 0.3), width: 0.5),
+        border: Border.all(color: color.withOpacity(0.3), width: 0.5),
       ),
       child: Text(
         label,

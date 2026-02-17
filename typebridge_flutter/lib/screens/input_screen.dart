@@ -28,22 +28,6 @@ class InputScreen extends StatelessWidget {
           ],
         ),
         actions: [
-          // 今日字数
-          if (isConnected)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: Chip(
-                avatar: Icon(Icons.edit_note_rounded,
-                    size: 16, color: theme.colorScheme.primary),
-                label: Text('${provider.todayChars}',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    )),
-                visualDensity: VisualDensity.compact,
-                side: BorderSide.none,
-                backgroundColor: theme.colorScheme.surfaceContainerHighest,
-              ),
-            ),
           IconButton(
             icon: const Icon(Icons.terminal_rounded, size: 20),
             tooltip: '日志',
@@ -133,8 +117,8 @@ class InputScreen extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
             child: ActionChip(
-              avatar: const Icon(Icons.add_rounded, size: 16),
-              label: const Text('添加'),
+              avatar: const Icon(Icons.add_rounded, size: 14),
+              label: const Text('添加', style: TextStyle(fontSize: 12)),
               visualDensity: VisualDensity.compact,
               onPressed: () => _showAddPhraseDialog(context, provider),
             ),
@@ -259,8 +243,8 @@ class InputScreen extends StatelessWidget {
         style: theme.textTheme.bodyLarge?.copyWith(fontSize: 17, height: 1.6),
         decoration: InputDecoration(
           hintText: provider.isRealtime ? '输入内容将自动发送到电脑...' : '在这里输入要发送的文字...',
-          hintStyle: TextStyle(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.35)),
+          hintStyle:
+              TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.35)),
           border: InputBorder.none,
           enabledBorder: InputBorder.none,
           focusedBorder: InputBorder.none,

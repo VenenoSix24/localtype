@@ -62,13 +62,13 @@ class InsightsScreen extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [
             theme.colorScheme.primary,
-            theme.colorScheme.primary.withValues(alpha: 0.8),
+            theme.colorScheme.primary.withOpacity(0.8),
           ],
         ),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(32),
         boxShadow: [
           BoxShadow(
-            color: theme.colorScheme.primary.withValues(alpha: 0.3),
+            color: theme.colorScheme.primary.withOpacity(0.3),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -78,7 +78,7 @@ class InsightsScreen extends StatelessWidget {
         children: [
           Text('累计输入',
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: Colors.white.withValues(alpha: 0.8),
+                color: Colors.white.withOpacity(0.8),
               )),
           const SizedBox(height: 8),
           Text(
@@ -92,7 +92,7 @@ class InsightsScreen extends StatelessWidget {
           const SizedBox(height: 4),
           Text('字符',
               style: theme.textTheme.bodySmall?.copyWith(
-                color: Colors.white.withValues(alpha: 0.7),
+                color: Colors.white.withOpacity(0.7),
               )),
         ],
       ),
@@ -165,13 +165,11 @@ class InsightsScreen extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: achieved
-                ? theme.colorScheme.primaryContainer.withValues(alpha: 0.6)
-                : theme.colorScheme.surfaceContainerHighest
-                    .withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(16),
+                ? theme.colorScheme.primaryContainer.withOpacity(0.6)
+                : theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
+            borderRadius: BorderRadius.circular(24),
             border: achieved
-                ? Border.all(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.3))
+                ? Border.all(color: theme.colorScheme.primary.withOpacity(0.3))
                 : null,
           ),
           child: Column(
@@ -197,8 +195,7 @@ class InsightsScreen extends StatelessWidget {
                 '${_formatNumber(m.threshold)} 字',
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: achieved
-                      ? theme.colorScheme.onPrimaryContainer
-                          .withValues(alpha: 0.7)
+                      ? theme.colorScheme.onPrimaryContainer.withOpacity(0.7)
                       : theme.colorScheme.outline,
                 ),
               ),
@@ -216,8 +213,8 @@ class InsightsScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(12),
+        color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         children: [

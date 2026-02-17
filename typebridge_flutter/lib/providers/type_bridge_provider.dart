@@ -256,17 +256,8 @@ class TypeBridgeProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> removePairedDevice(String ip) async {
-    // 如果移除的是当前连接的设备，先通知服务器并清除本地令牌
-    if (_lastConnectedIp == ip) {
-      if (_status == ConnectionStatus.connected && _channel != null) {
-        try {
-          _channel!.sink.add(jsonEncode({'type': 'unpair'}));
-        } catch (_) {}
-      }
-      _authToken = null;
-      _saveToken('');
-      disconnect();
-    }
+    // Note: We no longer unpair automatically when removing from list
+    // Pairing status (token) is independent of the favorite list
 
     _pairedDevices.removeWhere((d) => d.ip == ip);
     final prefs = await SharedPreferences.getInstance();
