@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:animations/animations.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../providers/local_type_provider.dart';
 import '../theme/app_theme.dart';
 import '../screens/theme_screen.dart';
@@ -309,8 +310,8 @@ class SettingsScreen extends StatelessWidget {
                   trailing: Icon(Icons.open_in_new_rounded,
                       size: 16, color: theme.colorScheme.onSurfaceVariant),
                   onTap: () {
-                    // TODO: 替换为真实的 GitHub 仓库链接
-                    // launchUrl(Uri.parse('https://github.com/your-username/LocalType'));
+                    launchUrl(
+                        Uri.parse('https://github.com/VenenoSix24/localtype'));
                   },
                 ),
               ],

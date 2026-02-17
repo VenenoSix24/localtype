@@ -41,3 +41,7 @@ android/local.properties
 tmp/
 .history/
 .agent/
+
+# Project Specific Exclusions
+localtype_rust/
+TypeBridge V1 spec.md
