@@ -18,12 +18,14 @@ class DiscoveredDevice {
   final String ip;
   final String name;
   final String? os;
+  final String? serverId;
   final DateTime discoveredAt;
 
   DiscoveredDevice({
     required this.ip,
     required this.name,
     this.os,
+    this.serverId,
     required this.discoveredAt,
   });
 }
@@ -85,11 +87,13 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   bool _isDarkMode = false;
   bool _useDynamicColor = false;
-  Color _seedColor = const Color(0xFF2563EB);
+  Color _seedColor = const Color(0xFF4CAF50);
   String? _deviceId;
   String? _deviceName; // 本地设备名称
   String? _remoteServerName; // 已连接的服务端名称
-  String? _authToken;
+  String? _remoteServerId; // 已连接的服务端 ID
+  String? _remoteServerOs; // 已连接的服务端 OS
+  Map<String, String> _tokens = {}; // serverId (或 ip) -> token
 
   Timer? _heartbeatTimer;
   Timer? _reconnectTimer;
@@ -119,6 +123,7 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
   String _todayDateKey = '';
   String _pageTransitionType = 'sharedAxisX';
   String _bubbleColorType = 'default';
+  bool _useSystemFont = false;
 
   // --- V1.2 聊天流 ---
   final List<MessageModel> _messages = [];
@@ -143,6 +148,7 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
   int get totalChars => _totalChars;
   int get todayChars => _todayChars;
   Color get seedColor => _seedColor;
+  bool get useSystemFont => _useSystemFont;
   bool get useDynamicColor => _useDynamicColor;
   String get pageTransitionType => _pageTransitionType;
   String get bubbleColorType => _bubbleColorType;
@@ -188,10 +194,20 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> _init() async {
     final prefs = await SharedPreferences.getInstance();
-    _authToken = prefs.getString('auth_token');
     _deviceId = prefs.getString('device_id');
     _deviceName = prefs.getString('device_name');
     _isDarkMode = prefs.getBool('is_dark_mode') ?? false;
+
+    // 加载多设备 Token
+    final tokensJson = prefs.getString('auth_tokens');
+    if (tokensJson != null) {
+      try {
+        final Map<String, dynamic> decoded = jsonDecode(tokensJson);
+        _tokens = decoded.map((key, value) => MapEntry(key, value.toString()));
+      } catch (e) {
+        addLog('加载 Tokens 失败: $e');
+      }
+    }
     _useDynamicColor = prefs.getBool('use_dynamic_color') ?? false;
     _injectionMethod = prefs.getString('injection_method') ?? 'unicode';
     final savedColor = prefs.getInt('seed_color');
@@ -237,6 +253,7 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
     _pageTransitionType =
         prefs.getString('page_transition_type') ?? 'sharedAxisX';
     _bubbleColorType = prefs.getString('bubble_color_type') ?? 'default';
+    _useSystemFont = prefs.getBool('use_system_font') ?? false;
 
     // Load Paired Devices
     await _loadPairedDevices();
@@ -258,6 +275,7 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
             ip: data['ip'],
             name: data['name'] ?? 'Unknown',
             os: data['os'],
+            serverId: data['serverId'],
             discoveredAt:
                 DateTime.tryParse(data['discoveredAt'] ?? '') ?? DateTime.now(),
           );
@@ -268,40 +286,94 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  Future<void> toggleFavorite(String ip, String name, String os) async {
+  Future<void> toggleFavorite(
+      String ip, String name, String? os, String? serverId) async {
     final isSaved = _pairedDevices.any((d) => d.ip == ip);
     if (isSaved) {
       await removePairedDevice(ip);
       addLog('已从收藏库移除: $name');
     } else {
-      await _savePairedDevice(ip, name, os);
+      await _savePairedDevice(ip, name, os, serverId);
       addLog('已加入收藏库: $name');
     }
   }
 
-  Future<void> _savePairedDevice(String ip, String name, String os) async {
+  Future<void> _savePairedDevice(
+      String ip, String name, String? os, String? serverId) async {
     final index = _pairedDevices.indexWhere((d) => d.ip == ip);
     if (index != -1) {
+      final existing = _pairedDevices[index];
       _pairedDevices[index] = DiscoveredDevice(
-          ip: ip, name: name, os: os, discoveredAt: DateTime.now());
+          ip: ip,
+          name: name,
+          os: os ?? existing.os,
+          serverId: serverId ?? existing.serverId,
+          discoveredAt: DateTime.now());
     } else {
       _pairedDevices.insert(
           0,
           DiscoveredDevice(
-              ip: ip, name: name, os: os, discoveredAt: DateTime.now()));
+              ip: ip,
+              name: name,
+              os: os,
+              serverId: serverId,
+              discoveredAt: DateTime.now()));
     }
 
+    await _persistPairedDevices();
+  }
+
+  Future<void> _persistPairedDevices() async {
     final prefs = await SharedPreferences.getInstance();
     final jsonList = _pairedDevices
         .map((d) => jsonEncode({
               'ip': d.ip,
               'name': d.name,
               'os': d.os,
+              'serverId': d.serverId,
               'discoveredAt': d.discoveredAt.toIso8601String(),
             }))
         .toList();
     await prefs.setStringList('paired_devices', jsonList);
     notifyListeners();
+  }
+
+  Future<void> unpairDevice(String ip, {String? serverId}) async {
+    _pairedDevices.removeWhere(
+        (d) => d.ip == ip || (serverId != null && d.serverId == serverId));
+    final key = serverId ?? ip;
+    _tokens.remove(key);
+    await _persistPairedDevices();
+    await _saveTokens();
+
+    if (_lastConnectedIp == ip && _channel != null) {
+      try {
+        _channel!.sink.add(jsonEncode({'type': 'unpair'}));
+        addLog('已向服务端发送解除配对请求');
+      } catch (e) {
+        addLog('发送解除配对请求失败: $e');
+      }
+      disconnect();
+    }
+    notifyListeners();
+  }
+
+  Future<void> renamePairedDevice(String ip, String newName) async {
+    final index = _pairedDevices.indexWhere((d) => d.ip == ip);
+    if (index != -1) {
+      final d = _pairedDevices[index];
+      _pairedDevices[index] = DiscoveredDevice(
+          ip: d.ip,
+          name: newName,
+          os: d.os,
+          serverId: d.serverId,
+          discoveredAt: d.discoveredAt);
+      await _persistPairedDevices();
+      if (_lastConnectedIp == ip) {
+        _remoteServerName = newName;
+      }
+      notifyListeners();
+    }
   }
 
   Future<void> removePairedDevice(String ip) async {
@@ -381,6 +453,13 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  Future<void> setUseSystemFont(bool value) async {
+    _useSystemFont = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('use_system_font', value);
+    notifyListeners();
+  }
+
   void setBubbleColorType(String type) async {
     _bubbleColorType = type;
     final prefs = await SharedPreferences.getInstance();
@@ -410,54 +489,78 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
     });
   }
 
-  void _performScan() {
+  Future<void> _performScan() async {
     try {
-      RawDatagramSocket.bind(InternetAddress.anyIPv4, 0).then((socket) {
-        socket.broadcastEnabled = true;
-        final data = utf8.encode('localtype_discovery');
-        socket.send(data, InternetAddress('255.255.255.255'), 45678);
+      final data = utf8.encode('localtype_discovery');
+      final socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
+      socket.broadcastEnabled = true;
 
-        socket.listen((RawSocketEvent e) {
-          Datagram? d = socket.receive();
-          if (d == null) return;
+      // 1. 发送到全局广播
+      socket.send(data, InternetAddress('255.255.255.255'), 45678);
 
-          String message = utf8.decode(d.data).trim();
-          if (message.startsWith('localtype_server:')) {
-            final content = message.substring('localtype_server:'.length);
-            final parts = content.split('|');
-            if (parts.isNotEmpty) {
-              final ip = parts[0];
-              final serverName =
-                  parts.length > 1 ? parts[1] : 'LocalType Server';
-              final osName = parts.length > 2 ? parts[2] : 'desktop';
+      // 2. 遍历所有网卡发送子网广播 (解决代理拦截)
+      try {
+        final interfaces = await NetworkInterface.list(
+          includeLinkLocal: false,
+          type: InternetAddressType.IPv4,
+        );
+        for (var iface in interfaces) {
+          for (var addr in iface.addresses) {
+            final parts = addr.address.split('.');
+            if (parts.length == 4) {
+              // 尝试发送到子网广播
+              final broadcast = '${parts[0]}.${parts[1]}.${parts[2]}.255';
+              socket.send(data, InternetAddress(broadcast), 45678);
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('获取网卡列表失败: $e');
+      }
 
-              if (!_discoveredDevices.any((dev) => dev.ip == ip)) {
-                _discoveredDevices.add(DiscoveredDevice(
-                  ip: ip,
-                  name: serverName,
-                  os: osName,
-                  discoveredAt: DateTime.now(),
-                ));
-                addLog('发现设备: $serverName ($ip) [$osName]');
-                notifyListeners();
+      socket.listen((RawSocketEvent e) async {
+        Datagram? d = socket.receive();
+        if (d == null) return;
 
-                // 如果发现的设备详情有更新，同步到已配对列表
-                final pairedIndex =
-                    _pairedDevices.indexWhere((d) => d.ip == ip);
-                if (pairedIndex != -1) {
-                  final p = _pairedDevices[pairedIndex];
-                  if (p.name != serverName || p.os != osName) {
-                    _savePairedDevice(ip, serverName, osName);
-                  }
+        String message = utf8.decode(d.data).trim();
+        if (message.startsWith('localtype_server:')) {
+          final content = message.substring('localtype_server:'.length);
+          final parts = content.split('|');
+          if (parts.isNotEmpty) {
+            final ip = parts[0];
+            final serverName = parts.length > 1 ? parts[1] : 'LocalType Server';
+            final osName = parts.length > 2 ? parts[2] : 'desktop';
+            final serverId = parts.length > 3 ? parts[3] : null;
+
+            if (!_discoveredDevices.any((dev) => dev.ip == ip)) {
+              _discoveredDevices.add(DiscoveredDevice(
+                ip: ip,
+                name: serverName,
+                os: osName,
+                serverId: serverId,
+                discoveredAt: DateTime.now(),
+              ));
+              addLog(
+                  '发现设备: $serverName ($ip) [$osName] ID: ${serverId ?? "NONE"}');
+              notifyListeners();
+
+              // 如果发现的设备详情有更新，同步到已配对列表
+              final pairedIndex = _pairedDevices.indexWhere((d) => d.ip == ip);
+              if (pairedIndex != -1) {
+                final p = _pairedDevices[pairedIndex];
+                if (p.name != serverName ||
+                    p.os != osName ||
+                    p.serverId != serverId) {
+                  await _savePairedDevice(ip, serverName, osName, serverId);
                 }
               }
             }
           }
-        });
+        }
+      });
 
-        Future.delayed(const Duration(seconds: 2), () {
-          socket.close();
-        });
+      Future.delayed(const Duration(seconds: 2), () {
+        socket.close();
       });
     } catch (e) {
       addLog('扫描错误: $e');
@@ -519,22 +622,37 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
 
       _status = ConnectionStatus.connected;
 
-      // 确定远程设备显示名称
       String nameToSave = '桌面端 ($ip)';
+      String? serverId;
+      String? os;
       final discoveredMatch = _discoveredDevices.where((d) => d.ip == ip);
       if (discoveredMatch.isNotEmpty) {
-        nameToSave = discoveredMatch.first.name;
+        final d = discoveredMatch.first;
+        nameToSave = d.name;
+        serverId = d.serverId;
+        os = d.os;
       } else {
         final pairedMatch = _pairedDevices.where((d) => d.ip == ip);
-        if (pairedMatch.isNotEmpty) nameToSave = pairedMatch.first.name;
+        if (pairedMatch.isNotEmpty) {
+          final d = pairedMatch.first;
+          nameToSave = d.name;
+          serverId = d.serverId;
+          os = d.os;
+        }
       }
       _remoteServerName = nameToSave;
+      _remoteServerId = serverId;
+      _remoteServerOs = os;
 
-      // 会话隔离逻辑：如果 IP 变了，清空消息列表
-      if (_lastConnectedIp != null && _lastConnectedIp != ip) {
-        _messages.clear();
-        addLog('切换目标设备，已开启新会话');
+      // 如果有 Token 查找对应的
+      String? matchedToken;
+      if (serverId != null) {
+        matchedToken = _tokens[serverId];
       }
+      // 兼容旧版或无 ID 场景，尝试使用 IP 作为临时 key
+      matchedToken ??= _tokens[ip];
+      // 兼容从旧版本升级的情况
+      matchedToken ??= _tokens['legacy_key'];
 
       _addSystemMessage('已连接到 $_remoteServerName');
 
@@ -546,8 +664,8 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
 
       _startHeartbeat();
 
-      if (_authToken != null) {
-        _sendAuth();
+      if (matchedToken != null) {
+        _sendAuth(matchedToken);
       } else {
         _requestPairing();
       }
@@ -587,7 +705,7 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  void _handleMessage(dynamic message) {
+  Future<void> _handleMessage(dynamic message) async {
     try {
       final Map<String, dynamic> msg = jsonDecode(message);
       switch (msg['type']) {
@@ -602,27 +720,60 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
           }
           break;
         case 'pairingsuccess':
-          _authToken = msg['token'];
-          _saveToken(_authToken!);
+          final token = msg['token'];
+          final serverOs = msg['os'];
+          if (serverOs != null) _remoteServerOs = serverOs;
+
+          final id = _remoteServerId ?? _lastConnectedIp!;
+          await _saveToken(id, token);
+          // 自动加入已配对设备列表以便管理
+          await _savePairedDevice(
+            _lastConnectedIp!,
+            _remoteServerName ?? '桌面端 ($_lastConnectedIp)',
+            _remoteServerOs, // 使用更新后的 OS
+            _remoteServerId,
+          );
           _authStatus = AuthStatus.authenticated;
           addLog('配对成功！');
           notifyListeners();
           break;
         case 'authsuccess':
+          final serverOs = msg['os'];
+          if (serverOs != null) _remoteServerOs = serverOs;
+
           _authStatus = AuthStatus.authenticated;
+          // 确保认证成功的设备也在管理列表中
+          if (_lastConnectedIp != null) {
+            await _savePairedDevice(
+              _lastConnectedIp!,
+              _remoteServerName ?? '桌面端 ($_lastConnectedIp)',
+              _remoteServerOs,
+              _remoteServerId,
+            );
+          }
           addLog('认证成功');
           notifyListeners();
           break;
         case 'authfailed':
           addLog('认证失败，令牌已失效或设备已被移除');
-          _authToken = null;
-          _saveToken('');
+          if (_remoteServerId != null) {
+            _tokens.remove(_remoteServerId);
+          }
+          if (_lastConnectedIp != null) {
+            _tokens.remove(_lastConnectedIp);
+          }
+          _saveTokens();
           disconnect(); // 直接断开，不再自动发起配对请求
           break;
         case 'unpaired':
           _addSystemMessage('连接已撤销或已解除配对');
-          _authToken = null;
-          _saveToken('');
+          if (_remoteServerId != null) {
+            _tokens.remove(_remoteServerId);
+          }
+          if (_lastConnectedIp != null) {
+            _tokens.remove(_lastConnectedIp);
+          }
+          _saveTokens();
           disconnect();
           break;
         case 'ack':
@@ -644,13 +795,13 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  void _sendAuth() {
+  void _sendAuth(String token) {
     if (_channel == null) return;
     addLog('正在认证...');
     _channel!.sink.add(jsonEncode({
       'type': 'auth',
       'device_id': _deviceId,
-      'token': _authToken,
+      'token': token,
       'os': Platform.operatingSystem
     }));
   }
@@ -678,33 +829,14 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
     }));
   }
 
-  Future<void> _saveToken(String token) async {
-    final prefs = await SharedPreferences.getInstance();
-    if (token.isEmpty) {
-      prefs.remove('auth_token');
-    } else {
-      prefs.setString('auth_token', token);
-    }
+  Future<void> _saveToken(String key, String token) async {
+    _tokens[key] = token;
+    await _saveTokens();
   }
 
-  Future<void> clearPairingData() async {
-    if (_status == ConnectionStatus.connected && _channel != null) {
-      try {
-        _channel!.sink.add(jsonEncode({'type': 'unpair'}));
-        addLog('已向服务端发送解除配对请求');
-      } catch (e) {
-        addLog('发送解除配对请求失败: $e');
-      }
-    }
-
+  Future<void> _saveTokens() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('auth_token');
-    _authToken = null;
-    addLog('本地配对信息已清除');
-    // 给异步发送留一点时间
-    await Future.delayed(const Duration(milliseconds: 300));
-    disconnect();
-    notifyListeners();
+    await prefs.setString('auth_tokens', jsonEncode(_tokens));
   }
 
   void disconnect() {

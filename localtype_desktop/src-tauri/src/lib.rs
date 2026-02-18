@@ -78,7 +78,8 @@ fn get_server_info(state: tauri::State<'_, ServerState>) -> serde_json::Value {
     serde_json::json!({
         "ip": ip,
         "port": WSS_PORT,
-        "device_name": config.device_name
+        "device_name": config.device_name,
+        "server_id": config.server_id
     })
 }
 
@@ -303,16 +304,16 @@ async fn run_discovery_service(state: ServerState) -> std::io::Result<()> {
 
         if msg.trim() == "localtype_discovery" {
             let local_ip = local_ip_address::local_ip().unwrap_or("127.0.0.1".parse().unwrap());
-            let device_name = {
+            let (device_name, server_id) = {
                 let config = state.config.lock().unwrap();
-                config.device_name.clone()
+                (config.device_name.clone(), config.server_id.clone())
             };
             let os_name = std::env::consts::OS;
             
-            // Format: localtype_server:[IP]|[NAME]|[OS]
-            let response = format!("localtype_server:{}|{}|{}", local_ip, device_name, os_name);
+            // Format: localtype_server:[IP]|[NAME]|[OS]|[ID]
+            let response = format!("localtype_server:{}|{}|{}|{}", local_ip, device_name, os_name, server_id);
             socket.send_to(response.as_bytes(), addr).await?;
-            info!("已响应发现请求 from {}: {} (OS: {})", addr, device_name, os_name);
+            info!("已响应发现请求 from {}: {} (OS: {}, ID: {})", addr, device_name, os_name, server_id);
         }
     }
 }
@@ -379,7 +380,7 @@ async fn accept_connection<S>(
                         match serde_json::from_str::<ClientMessage>(&text) {
                             Ok(client_msg) => match client_msg {
                                 ClientMessage::Ping => {
-                                    let pong = serde_json::to_string(&ClientMessage::Pong).unwrap();
+                                    let pong = serde_json::to_string(&ServerResponse::Pong).unwrap();
                                     if let Err(e) = ws_write.send(Message::Text(pong)).await {
                                         error!("发送 Pong 失败: {}", e);
                                         break;
@@ -436,14 +437,23 @@ async fn accept_connection<S>(
                                             active.insert(device_id.clone(), (addr.ip().to_string(), session_id));
                                             active.len() as i32
                                         };
+
+                                        let display_name = state.get_client_display_name(&device_id);
+                                        if let Some(window) = app_handle.get_webview_window("main") {
+                                            let _ = window.set_title(&format!("LocalType - {}", display_name));
+                                        }
+
                                         let _ = app_handle.emit("status-changed", StatusPayload {
-                                            text: format!("已连接: {}", device_name),
+                                            text: format!("已连接: {}", display_name),
                                         });
                                         let _ = app_handle.emit("connection-changed", ConnectionPayload { count: active_count });
                                         let _ = app_handle.emit("devices-changed", ());
                                         let _ = app_handle.emit("pairing-success", ());
 
-                                        let response = serde_json::to_string(&ServerResponse::PairingSuccess { token }).unwrap();
+                                        let response = serde_json::to_string(&ServerResponse::PairingSuccess { 
+                                            token,
+                                            os: std::env::consts::OS.to_string()
+                                        }).unwrap();
                                         let _ = ws_write.send(Message::Text(response)).await;
                                     } else {
                                         info!("配对失败: {}", device_name);
@@ -470,13 +480,20 @@ async fn accept_connection<S>(
                                             active.insert(device_id.clone(), (addr.ip().to_string(), session_id));
                                             active.len() as i32
                                         };
+                                        let display_name = state.get_client_display_name(&device_id);
+                                        if let Some(window) = app_handle.get_webview_window("main") {
+                                            let _ = window.set_title(&format!("LocalType - {}", display_name));
+                                        }
+
                                         let _ = app_handle.emit("status-changed", StatusPayload {
-                                            text: format!("已连接: {}", device_id),
+                                            text: format!("已连接: {}", display_name),
                                         });
                                         let _ = app_handle.emit("connection-changed", ConnectionPayload { count: active_count });
                                         let _ = app_handle.emit("devices-changed", ());
 
-                                        let response = serde_json::to_string(&ServerResponse::AuthSuccess).unwrap();
+                                        let response = serde_json::to_string(&ServerResponse::AuthSuccess {
+                                            os: std::env::consts::OS.to_string()
+                                        }).unwrap();
                                         let _ = ws_write.send(Message::Text(response)).await;
                                     } else {
                                         info!("认证失败: {}", device_id);
@@ -487,10 +504,11 @@ async fn accept_connection<S>(
                                 ClientMessage::Unpair => {
                                     if let Some(device_id) = &authenticated_device_name {
                                         info!("客户端请求解除配对: {}", device_id);
-                                        let d_id = device_id.clone();
-                                        state.remove_device(&d_id);
+                                        state.remove_device(device_id);
                                         let _ = app_handle.emit("devices-changed", ());
-                                        break; 
+                                        let response = serde_json::to_string(&ServerResponse::Unpaired).unwrap();
+                                        let _ = ws_write.send(Message::Text(response)).await;
+                                        break;
                                     }
                                 }
                                 ClientMessage::Send { content, method, msg_id } => {
@@ -558,6 +576,12 @@ async fn accept_connection<S>(
         active.len() as i32
     };
 
+    if active_count == 0 {
+        if let Some(window) = app_handle.get_webview_window("main") {
+            let _ = window.set_title("LocalType");
+        }
+    }
+
     let _ = app_handle.emit(
         "status-changed",
         StatusPayload {
@@ -605,8 +629,8 @@ enum ClientMessage {
 enum ServerResponse {
     Pong,
     PairingCodeRequired,
-    PairingSuccess { token: String },
-    AuthSuccess,
+    PairingSuccess { token: String, os: String },
+    AuthSuccess { os: String },
     AuthFailed,
     Unpaired,
     Ack { msg_id: String },
