@@ -45,7 +45,9 @@ class AppTheme {
   }
 
   static ThemeData lightTheme(
-      {Color seedColor = defaultSeedColor, ColorScheme? colorScheme}) {
+      {Color seedColor = defaultSeedColor,
+      ColorScheme? colorScheme,
+      bool useSystemFont = false}) {
     final themeColorScheme = colorScheme ??
         ColorScheme.fromSeed(
           seedColor: seedColor,
@@ -56,7 +58,7 @@ class AppTheme {
       useMaterial3: true,
       colorScheme: themeColorScheme,
       scaffoldBackgroundColor: themeColorScheme.surface,
-      textTheme: GoogleFonts.poppinsTextTheme(),
+      textTheme: useSystemFont ? null : GoogleFonts.poppinsTextTheme(),
       appBarTheme: AppBarTheme(
         centerTitle: true,
         elevation: 0,
@@ -139,7 +141,9 @@ class AppTheme {
   }
 
   static ThemeData darkTheme(
-      {Color seedColor = defaultSeedColor, ColorScheme? colorScheme}) {
+      {Color seedColor = defaultSeedColor,
+      ColorScheme? colorScheme,
+      bool useSystemFont = false}) {
     final themeColorScheme = colorScheme ??
         ColorScheme.fromSeed(
           seedColor: seedColor,
@@ -150,7 +154,9 @@ class AppTheme {
       useMaterial3: true,
       colorScheme: themeColorScheme,
       scaffoldBackgroundColor: themeColorScheme.surface,
-      textTheme: GoogleFonts.poppinsTextTheme(ThemeData.dark().textTheme),
+      textTheme: useSystemFont
+          ? ThemeData.dark().textTheme
+          : GoogleFonts.poppinsTextTheme(ThemeData.dark().textTheme),
       appBarTheme: AppBarTheme(
         centerTitle: true,
         elevation: 0,

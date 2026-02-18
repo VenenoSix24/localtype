@@ -25,6 +25,7 @@ pub struct TrustedClient {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct AppConfig {
     pub device_name: String,
+    pub server_id: String,
 }
 
 impl Default for AppConfig {
@@ -33,6 +34,7 @@ impl Default for AppConfig {
             device_name: hostname::get()
                 .map(|h| h.to_string_lossy().into_owned())
                 .unwrap_or_else(|_| "LocalType Desktop".to_string()),
+            server_id: uuid::Uuid::new_v4().to_string(),
         }
     }
 }
@@ -106,6 +108,14 @@ impl ServerState {
         let file = File::create(&self.devices_path)?;
         serde_json::to_writer_pretty(file, &*clients)?;
         Ok(())
+    }
+
+    pub fn get_client_display_name(&self, device_id: &str) -> String {
+        let clients = self.trusted_clients.lock().unwrap();
+        clients
+            .get(device_id)
+            .map(|c| c.alias.clone().unwrap_or(c.name.clone()))
+            .unwrap_or_else(|| device_id.to_string())
     }
 
     pub fn is_trusted(&self, client_id: &str, token: &str) -> bool {

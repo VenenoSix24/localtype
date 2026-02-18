@@ -57,15 +57,17 @@ class LocalTypeApp extends StatelessWidget {
             }
 
             return MaterialApp(
-              title: provider.remoteServerName ?? 'LocalType',
+              title: 'LocalType',
               debugShowCheckedModeBanner: false,
               theme: AppTheme.lightTheme(
                 seedColor: provider.seedColor,
                 colorScheme: lightColorScheme,
+                useSystemFont: provider.useSystemFont,
               ),
               darkTheme: AppTheme.darkTheme(
                 seedColor: provider.seedColor,
                 colorScheme: darkColorScheme,
+                useSystemFont: provider.useSystemFont,
               ),
               themeMode: provider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
               home: const MainScreen(),

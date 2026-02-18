@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../providers/local_type_provider.dart';
 import '../theme/app_theme.dart';
 import '../screens/theme_screen.dart';
+import '../screens/device_management_screen.dart';
 import '../screens/phrase_management_screen.dart';
 
 /// 设置页面
@@ -51,19 +52,23 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 const Divider(height: 1, indent: 16, endIndent: 16),
                 ListTile(
-                  leading: Icon(Icons.delete_outline_rounded,
-                      color: theme.colorScheme.error),
-                  title: Text(
-                    '清除配对信息',
-                    style: TextStyle(color: theme.colorScheme.error),
-                  ),
+                  leading: Icon(Icons.phonelink_setup_rounded,
+                      color: theme.colorScheme.primary),
+                  title: const Text('管理已配对设备'),
                   subtitle: Text(
-                    '清除后需重新与电脑配对',
+                    '查看及管理已授权的 ${provider.pairedDevices.length} 台设备',
                     style: TextStyle(
                         color: theme.colorScheme.onSurfaceVariant,
                         fontSize: 13),
                   ),
-                  onTap: () => _showClearPairingDialog(context, provider),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const DeviceManagementScreen()),
+                    );
+                  },
                 ),
               ],
             ),
@@ -237,6 +242,31 @@ class SettingsScreen extends StatelessWidget {
                     );
                   },
                 ),
+                const Divider(height: 1, indent: 16, endIndent: 16),
+                ListTile(
+                  leading: Icon(Icons.font_download_rounded,
+                      color: theme.colorScheme.primary),
+                  title: const Text('选择字体'),
+                  subtitle: Text(
+                    '点击选择当前软件字体',
+                    style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        provider.useSystemFont ? '系统默认' : '内置字体',
+                        style: TextStyle(
+                            color: theme.colorScheme.primary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.chevron_right_rounded),
+                    ],
+                  ),
+                  onTap: () => _showFontDialog(context, provider),
+                ),
               ],
             ),
           ),
@@ -294,7 +324,7 @@ class SettingsScreen extends StatelessWidget {
                   iconColor: theme.colorScheme.onSurfaceVariant,
                   title: const Text('LocalType'),
                   subtitle: Text(
-                    'v1.2.1',
+                    'v1.2.2',
                     style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
                   ),
                 ),
@@ -376,6 +406,42 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
+  void _showFontDialog(BuildContext context, LocalTypeProvider provider) {
+    showModal<void>(
+      context: context,
+      configuration: const FadeScaleTransitionConfiguration(),
+      builder: (ctx) => AlertDialog(
+        title: const Text('选择软件字体'),
+        content: RadioGroup<bool>(
+          groupValue: provider.useSystemFont,
+          onChanged: (val) {
+            if (val != null) {
+              provider.setUseSystemFont(val);
+              Navigator.pop(ctx);
+            }
+          },
+          child: const Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              RadioListTile<bool>(
+                title: Text('内置字体'),
+                subtitle: Text('使用软件内置的 Poppins 字体'),
+                value: false,
+                contentPadding: EdgeInsets.zero,
+              ),
+              RadioListTile<bool>(
+                title: Text('系统默认字体'),
+                subtitle: Text('使用手机系统中设置的默认字体'),
+                value: true,
+                contentPadding: EdgeInsets.zero,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _showBubbleColorDialog(
       BuildContext context, LocalTypeProvider provider) {
     showModal<void>(
@@ -431,37 +497,6 @@ class SettingsScreen extends StatelessWidget {
           color: theme.colorScheme.primary,
           fontWeight: FontWeight.w600,
         ),
-      ),
-    );
-  }
-
-  /// 清除配对信息确认对话框
-  void _showClearPairingDialog(
-      BuildContext context, LocalTypeProvider provider) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        icon: const Icon(Icons.warning_amber_rounded,
-            size: 36, color: Colors.orange),
-        title: const Text('清除配对信息'),
-        content: const Text('清除后将断开当前连接，下次连接需要重新输入验证码进行配对。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              provider.clearPairingData();
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-            child: const Text('确认清除'),
-          ),
-        ],
       ),
     );
   }

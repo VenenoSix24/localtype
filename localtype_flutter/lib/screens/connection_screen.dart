@@ -68,7 +68,6 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                     letterSpacing: 12,
                     fontWeight: FontWeight.bold),
                 decoration: InputDecoration(
-                  hintText: '000000',
                   counterText: '',
                   filled: true,
                   fillColor: theme.colorScheme.surfaceContainerHighest,
@@ -490,8 +489,8 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                                   size: 24,
                                 ),
                                 onPressed: () {
-                                  provider.toggleFavorite(
-                                      device.ip, device.name, device.os ?? '');
+                                  provider.toggleFavorite(device.ip,
+                                      device.name, device.os, device.serverId);
                                 },
                               ),
                               if (provider.connectedIp == device.ip &&
