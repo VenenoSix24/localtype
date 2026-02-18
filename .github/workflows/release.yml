@@ -141,12 +141,20 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
 
-      - name: upload Android to Release
+      - name: Rename APKs
+        run: |
+          cd localtype_flutter/build/app/outputs/flutter-apk/
+          for f in app-*-release.apk; do
+            mv "$f" "${f//app/LocalType}"
+          done
+
+      - name: Up Android to Release
         uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'manual-build' }}
           files: |
-            localtype_flutter/build/app/outputs/flutter-apk/*.apk
+            localtype_flutter/build/app/outputs/flutter-apk/LocalType-*.apk
             localtype_flutter/build/app/outputs/bundle/release/*.aab
+          draft: true
