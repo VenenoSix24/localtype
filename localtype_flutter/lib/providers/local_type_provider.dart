@@ -147,6 +147,7 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
   List<QuickPhrase> get quickPhrases => _quickPhrases;
   int get totalChars => _totalChars;
   int get todayChars => _todayChars;
+  int get reconnectAttempts => _reconnectAttempts;
   Color get seedColor => _seedColor;
   bool get useSystemFont => _useSystemFont;
   bool get useDynamicColor => _useDynamicColor;
@@ -339,23 +340,27 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> unpairDevice(String ip, {String? serverId}) async {
-    _pairedDevices.removeWhere(
-        (d) => d.ip == ip || (serverId != null && d.serverId == serverId));
-    final key = serverId ?? ip;
-    _tokens.remove(key);
-    await _persistPairedDevices();
-    await _saveTokens();
+    try {
+      _pairedDevices.removeWhere(
+          (d) => d.ip == ip || (serverId != null && d.serverId == serverId));
+      final key = serverId ?? ip;
+      _tokens.remove(key);
+      notifyListeners(); // 立即通知 UI 移除卡片，防止 index 越界或引用已删除数据
 
-    if (_lastConnectedIp == ip && _channel != null) {
-      try {
-        _channel!.sink.add(jsonEncode({'type': 'unpair'}));
-        addLog('已向服务端发送解除配对请求');
-      } catch (e) {
-        addLog('发送解除配对请求失败: $e');
+      await _persistPairedDevices();
+      await _saveTokens();
+
+      if (_lastConnectedIp == ip) {
+        if (_channel != null) {
+          try {
+            _channel!.sink.add(jsonEncode({'type': 'unpair'}));
+          } catch (_) {}
+        }
+        disconnect();
       }
-      disconnect();
+    } catch (e) {
+      addLog('解除配对失败: $e');
     }
-    notifyListeners();
   }
 
   Future<void> renamePairedDevice(String ip, String newName) async {
@@ -481,7 +486,8 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
     int scanCount = 0;
     _scanTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
       scanCount++;
-      if (scanCount >= 5) {
+      if (scanCount >= 1) {
+        // 3秒后停止扫描
         stopDeviceDiscovery();
         return;
       }
@@ -580,7 +586,7 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   // ==================== 连接逻辑 ====================
 
-  Future<void> connect(String ip) async {
+  Future<void> connect(String ip, {bool isRetry = false}) async {
     if (ip.isEmpty) {
       addLog('请输入 IP 地址');
       return;
@@ -595,11 +601,15 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
     if (_status == ConnectionStatus.connected && _lastConnectedIp == ip) {
       return;
     }
-    if (_status == ConnectionStatus.connecting) {
+    if (_status == ConnectionStatus.connecting && !isRetry) {
       return;
     }
 
-    _stopReconnect();
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    if (!isRetry) {
+      _reconnectAttempts = 0;
+    }
 
     _status = ConnectionStatus.connecting;
     _authStatus = AuthStatus.unauthenticated;
@@ -850,6 +860,7 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
     _authStatus = AuthStatus.unauthenticated;
     _lastConnectedIp = null;
     _remoteServerName = null;
+    _reconnectAttempts = 0;
     notifyListeners();
   }
 
@@ -878,29 +889,31 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void _scheduleReconnect() {
-    if (_reconnectAttempts >= 8) {
+    if (_reconnectAttempts >= 5) {
       addLog('达到最大重连次数，已停止');
+      _status = ConnectionStatus.disconnected;
+      _remoteServerName = null;
+      _lastConnectedIp = null;
+      _authStatus = AuthStatus.unauthenticated;
+      notifyListeners();
       return;
     }
 
     if (_lastConnectedIp == null) return;
 
-    final baseDelay = min(pow(2, _reconnectAttempts).toInt(), 60);
-    final jitter = (baseDelay * 0.2 * Random().nextDouble()).toInt();
-    final delaySeconds = baseDelay + jitter;
+    const delaySeconds = 2;
     addLog('将在 ${delaySeconds}s 后重连...');
 
     _reconnectTimer?.cancel();
-    _reconnectTimer = Timer(Duration(seconds: delaySeconds), () {
+    _reconnectTimer = Timer(const Duration(seconds: delaySeconds), () {
       _reconnectAttempts++;
-      connect(_lastConnectedIp!);
+      connect(_lastConnectedIp!, isRetry: true);
     });
   }
 
   void _stopReconnect() {
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
-    _reconnectAttempts = 0;
   }
 
   // ==================== 文字发送 ====================

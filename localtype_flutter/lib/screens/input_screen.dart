@@ -454,7 +454,7 @@ class _InputScreenState extends State<InputScreen> {
                         );
                       },
                       decoration: const InputDecoration(
-                        hintText: '开始打字...',
+                        hintText: '开始输入吧...',
                         border: InputBorder.none,
                         enabledBorder: InputBorder.none,
                         focusedBorder: InputBorder.none,

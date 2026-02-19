@@ -127,27 +127,30 @@ class DeviceManagementScreen extends StatelessWidget {
       LocalTypeProvider provider, DiscoveredDevice device) {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('取消配对'),
-        content: Text('确认要取消与设备 "${device.name}" 的配对吗？取消后将删除本地授权令牌。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('再想想'),
-          ),
-          FilledButton(
-            onPressed: () {
-              provider.unpairDevice(device.ip, serverId: device.serverId);
-              Navigator.pop(ctx);
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-              foregroundColor: Theme.of(context).colorScheme.onError,
+      builder: (ctx) {
+        final dialogTheme = Theme.of(ctx);
+        return AlertDialog(
+          title: const Text('取消配对'),
+          content: Text('确认要取消与设备 "${device.name}" 的配对吗？取消后将删除本地授权令牌。'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('再想想'),
             ),
-            child: const Text('确认取消'),
-          ),
-        ],
-      ),
+            FilledButton(
+              onPressed: () {
+                provider.unpairDevice(device.ip, serverId: device.serverId);
+                Navigator.pop(ctx);
+              },
+              style: FilledButton.styleFrom(
+                backgroundColor: dialogTheme.colorScheme.error,
+                foregroundColor: dialogTheme.colorScheme.onError,
+              ),
+              child: const Text('确认取消'),
+            ),
+          ],
+        );
+      },
     );
   }
 }
