@@ -13,10 +13,17 @@ class ConnectionScreen extends StatefulWidget {
   State<ConnectionScreen> createState() => _ConnectionScreenState();
 }
 
-class _ConnectionScreenState extends State<ConnectionScreen> {
+class _ConnectionScreenState extends State<ConnectionScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _rotationController;
+
   @override
   void initState() {
     super.initState();
+    _rotationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = Provider.of<LocalTypeProvider>(context, listen: false);
       provider.onPairingRequired = (msg) {
@@ -25,6 +32,12 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
       // 自动开始扫描
       _startScan();
     });
+  }
+
+  @override
+  void dispose() {
+    _rotationController.dispose();
+    super.dispose();
   }
 
   void _startScan() {
@@ -120,7 +133,7 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.hub_rounded, size: 22, color: theme.colorScheme.primary),
+            Icon(Icons.sensors_rounded, size: 22, color: theme.colorScheme.primary),
             const SizedBox(width: 8),
             const Text('连接'),
           ],
@@ -155,14 +168,23 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                   IconButton(
                     iconSize: 20,
                     visualDensity: VisualDensity.compact,
-                    icon: provider.isScanning
-                        ? SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: theme.colorScheme.primary))
-                        : const Icon(Icons.refresh_rounded),
+                    icon: AnimatedBuilder(
+                      animation: _rotationController,
+                      builder: (context, child) {
+                        // 当开始扫描时，如果动画没在运行，则启动
+                        if (provider.isScanning &&
+                            !_rotationController.isAnimating) {
+                          _rotationController.repeat();
+                        } else if (!provider.isScanning &&
+                            _rotationController.isAnimating) {
+                          _rotationController.stop();
+                        }
+                        return RotationTransition(
+                          turns: _rotationController,
+                          child: const Icon(Icons.sync_rounded),
+                        );
+                      },
+                    ),
                     onPressed: _startScan,
                     tooltip: '重新扫描',
                   ),
@@ -172,7 +194,7 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
           ),
 
           // 设备列表
-          _buildDeviceList(provider, theme),
+          ..._buildDeviceSlivers(provider, theme),
 
           // 手动输入入口页脚
           SliverToBoxAdapter(
@@ -199,9 +221,14 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
   Widget _buildStatusPanel(
       LocalTypeProvider provider, ThemeData theme, bool isConnected) {
     final statusColor = isConnected ? Colors.green : Colors.orange;
-    final statusText = isConnected
-        ? '已连接'
-        : (provider.status == ConnectionStatus.connecting ? '连接中...' : '尚未连接');
+    String statusText = isConnected ? '已连接' : '尚未连接';
+    if (provider.status == ConnectionStatus.connecting) {
+      statusText = provider.reconnectAttempts > 0
+          ? '自动重连中 (${provider.reconnectAttempts}/5)'
+          : '正在连接...';
+    } else if (provider.status == ConnectionStatus.error) {
+      statusText = '连接失败，准备重连...';
+    }
 
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -224,7 +251,8 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                       color: statusColor,
                       shape: BoxShape.circle,
                       boxShadow: [
-                        if (isConnected)
+                        if (isConnected ||
+                            provider.status == ConnectionStatus.connecting)
                           BoxShadow(
                               color: statusColor.withValues(alpha: 0.4),
                               blurRadius: 8,
@@ -238,7 +266,7 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                       fontWeight: FontWeight.bold, color: statusColor),
                 ),
                 const Spacer(),
-                if (isConnected)
+                if (provider.remoteServerName != null)
                   TextButton(
                     onPressed: provider.disconnect,
                     style: TextButton.styleFrom(
@@ -247,7 +275,11 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                       minimumSize: Size.zero,
                       foregroundColor: theme.colorScheme.error,
                     ),
-                    child: const Text('断开连接', style: TextStyle(fontSize: 12)),
+                    child: Text(
+                        provider.status == ConnectionStatus.connecting
+                            ? '取消'
+                            : '断开连接',
+                        style: const TextStyle(fontSize: 12)),
                   ),
               ],
             ),
@@ -278,7 +310,7 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                         size: 16, color: theme.colorScheme.primary),
                     const SizedBox(width: 8),
                     Text(
-                      '输入管道已就绪',
+                      '输入通道已就绪',
                       style: theme.textTheme.labelMedium?.copyWith(
                           color: theme.colorScheme.primary,
                           fontWeight: FontWeight.bold),
@@ -310,204 +342,289 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
     );
   }
 
-  Widget _buildDeviceList(LocalTypeProvider provider, ThemeData theme) {
+  List<Widget> _buildDeviceSlivers(
+      LocalTypeProvider provider, ThemeData theme) {
     final discovered = provider.discoveredDevices;
     final paired = provider.pairedDevices;
 
-    // 合并结果：已扫描到的设备优先级高于仅保存在本地的设备
-    final allDevices = <String, DiscoveredDevice>{};
-    for (var d in paired) {
-      allDevices[d.ip] = d;
-    }
-    for (var d in discovered) {
-      allDevices[d.ip] = d;
+    // 分类设备
+    final pairedIps = paired.map((d) => d.ip).toSet();
+    final pairedItems = [...paired];
+    // 如果某个已配对设备当前在线，更新其信息（如名称可能变了）
+    for (int i = 0; i < pairedItems.length; i++) {
+      final onlineMatch =
+          discovered.where((d) => d.ip == pairedItems[i].ip).toList();
+      if (onlineMatch.isNotEmpty) {
+        pairedItems[i] = onlineMatch.first;
+      }
     }
 
-    final sortedItems = allDevices.values.toList()
-      ..sort((a, b) {
-        // 已连接的排在最前
+    final unpairedNearbyItems =
+        discovered.where((d) => !pairedIps.contains(d.ip)).toList();
+
+    // 排序逻辑保持主次：已连接 > 在线 > 离线
+    void sortDevices(List<DiscoveredDevice> list) {
+      list.sort((a, b) {
         if (provider.connectedIp == a.ip) return -1;
         if (provider.connectedIp == b.ip) return 1;
-        // 在线的排在第二
         bool aOnline = discovered.any((d) => d.ip == a.ip);
         bool bOnline = discovered.any((d) => d.ip == b.ip);
         if (aOnline && !bOnline) return -1;
         if (!aOnline && bOnline) return 1;
         return 0;
       });
+    }
 
-    if (sortedItems.isEmpty && !provider.isScanning) {
-      return SliverFillRemaining(
-        hasScrollBody: false,
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.portable_wifi_off_rounded,
-                  size: 64, color: theme.colorScheme.outlineVariant),
-              const SizedBox(height: 16),
-              Text('未发现可用设备',
-                  style: theme.textTheme.bodyLarge
-                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-              const SizedBox(height: 8),
-              Text('请确保电脑端已启动且处于同一局域网',
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-              const SizedBox(height: 24),
-              OutlinedButton.icon(
-                onPressed: () => _showManualInputDialog(context, provider),
-                icon: const Icon(Icons.keyboard_rounded, size: 18),
-                label: const Text('手动输入 IP 地址'),
-              ),
-            ],
+    sortDevices(pairedItems);
+    sortDevices(unpairedNearbyItems);
+
+    if (pairedItems.isEmpty &&
+        unpairedNearbyItems.isEmpty &&
+        !provider.isScanning) {
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.portable_wifi_off_rounded,
+                    size: 64, color: theme.colorScheme.outlineVariant),
+                const SizedBox(height: 16),
+                Text('未发现可用设备',
+                    style: theme.textTheme.bodyLarge
+                        ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                const SizedBox(height: 8),
+                Text('请确保电脑端已启动且处于同一局域网',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                const SizedBox(height: 24),
+                OutlinedButton.icon(
+                  onPressed: () => _showManualInputDialog(context, provider),
+                  icon: const Icon(Icons.keyboard_rounded, size: 18),
+                  label: const Text('手动输入 IP 地址'),
+                ),
+              ],
+            ),
+          ),
+        )
+      ];
+    }
+
+    final List<Widget> slivers = [];
+
+    // 1. 已配对设备
+    if (pairedItems.isNotEmpty) {
+      slivers.add(_buildListHeader(theme, '已配对设备', Icons.bookmark_rounded));
+      slivers.add(
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final device = pairedItems[index];
+                final isOnline = discovered.any((d) => d.ip == device.ip);
+                return _buildDeviceItem(
+                    context, provider, theme, device, isOnline, true);
+              },
+              childCount: pairedItems.length,
+            ),
           ),
         ),
       );
     }
 
-    return SliverPadding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      sliver: SliverList(
-        delegate: SliverChildBuilderDelegate(
-          (context, index) {
-            final device = sortedItems[index];
-            final isOnline = discovered.any((d) => d.ip == device.ip);
-            final isSaved = paired.any((d) => d.ip == device.ip);
+    // 2. 未配对/附近设备
+    if (unpairedNearbyItems.isNotEmpty) {
+      slivers.add(_buildListHeader(theme, '扫描到的新设备', Icons.radar_rounded));
+      slivers.add(
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final device = unpairedNearbyItems[index];
+                const isOnline = true; // 出现在 discovered 列表里的一定是在线的
+                return _buildDeviceItem(
+                    context, provider, theme, device, isOnline, false);
+              },
+              childCount: unpairedNearbyItems.length,
+            ),
+          ),
+        ),
+      );
+    }
 
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainer,
-                  borderRadius: BorderRadius.circular(28),
-                  border: Border.all(
-                    color:
-                        theme.colorScheme.outlineVariant.withValues(alpha: 0.2),
+    return slivers;
+  }
+
+  Widget _buildListHeader(ThemeData theme, String title, IconData icon) {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+        child: Row(
+          children: [
+            Icon(icon,
+                size: 16,
+                color: theme.colorScheme.primary.withValues(alpha: 0.7)),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: theme.textTheme.labelMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.primary.withValues(alpha: 0.8),
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDeviceItem(
+    BuildContext context,
+    LocalTypeProvider provider,
+    ThemeData theme,
+    DiscoveredDevice device,
+    bool isOnline,
+    bool isSaved,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainer,
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.2),
+          ),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(28),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () {
+              HapticFeedback.lightImpact();
+              if (isOnline) {
+                provider.connect(device.ip);
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('设备 "${device.name}" 目前不在线'),
+                    behavior: SnackBarBehavior.floating,
                   ),
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  borderRadius: BorderRadius.circular(28),
-                  clipBehavior: Clip.antiAlias,
-                  child: InkWell(
-                    onTap: () {
-                      HapticFeedback.lightImpact();
-                      provider.connect(device.ip);
-                    },
-                    borderRadius: BorderRadius.circular(28),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        children: [
-                          // 图标容器
-                          Container(
-                            width: 56,
-                            height: 56,
-                            decoration: BoxDecoration(
-                              color: isOnline
-                                  ? theme.colorScheme.primaryContainer
-                                      .withValues(alpha: 0.7)
-                                  : theme.colorScheme.surfaceContainerHighest
-                                      .withValues(alpha: 0.5),
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                            child: Icon(
-                              Icons.desktop_windows_rounded,
-                              color: isOnline
-                                  ? theme.colorScheme.primary
-                                  : theme.colorScheme.onSurfaceVariant,
-                              size: 28,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          // 信息区块
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Flexible(
-                                      child: Text(
-                                        device.name,
-                                        style: theme.textTheme.titleMedium
-                                            ?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                          letterSpacing: -0.2,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    if (isOnline) ...[
-                                      const SizedBox(width: 8),
-                                      Container(
-                                        width: 8,
-                                        height: 8,
-                                        decoration: const BoxDecoration(
-                                          color: Colors.green,
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
-                                Wrap(
-                                  spacing: 6,
-                                  runSpacing: 4,
-                                  children: [
-                                    _buildTag(
-                                        theme,
-                                        device.ip,
-                                        theme.colorScheme.onSurfaceVariant
-                                            .withValues(alpha: 0.6)),
-                                    if (device.os != null &&
-                                        device.os!.isNotEmpty)
-                                      _buildTag(
-                                          theme,
-                                          device.os!.toUpperCase(),
-                                          theme.colorScheme.primary
-                                              .withValues(alpha: 0.8)),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                          // 尾部操作区
-                          Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              IconButton(
-                                icon: Icon(
-                                  isSaved
-                                      ? Icons.star_rounded
-                                      : Icons.star_outline_rounded,
-                                  color: isSaved
-                                      ? Colors.orange
-                                      : theme.colorScheme.outline,
-                                  size: 24,
-                                ),
-                                onPressed: () {
-                                  provider.toggleFavorite(device.ip,
-                                      device.name, device.os, device.serverId);
-                                },
-                              ),
-                              if (provider.connectedIp == device.ip &&
-                                  provider.status == ConnectionStatus.connected)
-                                const Icon(Icons.link_rounded,
-                                    color: Colors.green, size: 20),
-                            ],
-                          ),
-                        ],
-                      ),
+                );
+              }
+            },
+            borderRadius: BorderRadius.circular(28),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  // 图标容器
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: isOnline
+                          ? theme.colorScheme.primaryContainer
+                              .withValues(alpha: 0.7)
+                          : theme.colorScheme.surfaceContainerHighest
+                              .withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: Icon(
+                      Icons.desktop_windows_rounded,
+                      color: isOnline
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.onSurfaceVariant,
+                      size: 28,
                     ),
                   ),
-                ),
+                  const SizedBox(width: 16),
+                  // 信息区块
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                device.name,
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: -0.2,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (isOnline) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(
+                                  color: Colors.green,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          children: [
+                            _buildTag(
+                                theme,
+                                device.ip,
+                                theme.colorScheme.onSurfaceVariant
+                                    .withValues(alpha: 0.6)),
+                            if (device.os != null && device.os!.isNotEmpty)
+                              _buildTag(
+                                  theme,
+                                  device.os!.toUpperCase(),
+                                  theme.colorScheme.primary
+                                      .withValues(alpha: 0.8)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  // 尾部操作区
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        icon: Icon(
+                          isSaved
+                              ? Icons.star_rounded
+                              : Icons.star_outline_rounded,
+                          color: isSaved
+                              ? Colors.orange
+                              : theme.colorScheme.outline,
+                          size: 24,
+                        ),
+                        onPressed: () {
+                          provider.toggleFavorite(device.ip, device.name,
+                              device.os, device.serverId);
+                        },
+                      ),
+                      if (provider.connectedIp == device.ip &&
+                          provider.status == ConnectionStatus.connected)
+                        const Icon(Icons.link_rounded,
+                            color: Colors.green, size: 20),
+                    ],
+                  ),
+                ],
               ),
-            );
-          },
-          childCount: sortedItems.length,
+            ),
+          ),
         ),
       ),
     );
