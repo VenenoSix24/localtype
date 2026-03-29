@@ -286,12 +286,25 @@ function DevicesPage({ devices, onRemoveDevice, onUpdateAlias }: any) {
 function SettingsPage({ onRefresh }: { onRefresh: () => void }) {
   const [autoStart, setAutoStart] = useState(false);
   const [deviceName, setDeviceName] = useState("");
+  const [networkInterfaces, setNetworkInterfaces] = useState<Array<{ name: string; ip: string }>>([]);
+  const [discoveryInterface, setDiscoveryInterface] = useState("");
   const [saved, setSaved] = useState(false);
+  const [interfaceSaved, setInterfaceSaved] = useState(false);
   const { theme, setTheme } = useContext(ThemeContext);
 
   useEffect(() => {
-    // 加载配置
-    invoke<any>("get_app_config").then(cfg => setDeviceName(cfg.device_name));
+    // 加载配置和网卡列表
+    invoke<any>("get_app_config").then(cfg => {
+      setDeviceName(cfg.device_name || "");
+      setDiscoveryInterface(cfg.discovery_interface || "");
+    });
+
+    invoke<any>("get_network_interfaces").then(data => {
+      setNetworkInterfaces(data.interfaces || []);
+      if (typeof data.selected === 'string') {
+        setDiscoveryInterface(data.selected);
+      }
+    });
 
     import("@tauri-apps/plugin-autostart").then(async (autostart) => {
       try { setAutoStart(await autostart.isEnabled()); } catch (e) { }
@@ -317,6 +330,19 @@ function SettingsPage({ onRefresh }: { onRefresh: () => void }) {
       await autostart.enable();
     }
     setAutoStart(await autostart.isEnabled());
+  };
+
+  const handleInterfaceSave = async () => {
+    try {
+      await invoke("update_discovery_interface", {
+        interfaceName: discoveryInterface || null,
+      });
+      setInterfaceSaved(true);
+      onRefresh();
+      setTimeout(() => setInterfaceSaved(false), 2000);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   return (
@@ -347,6 +373,40 @@ function SettingsPage({ onRefresh }: { onRefresh: () => void }) {
               {saved ? '已保存' : '更新'}
             </button>
           </div>
+        </div>
+
+        {/* 发现响应网卡 */}
+        <div className="p-6 space-y-4 hover:bg-white/5 transition">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-accent-blue/10 rounded-xl text-accent-blue"> <Wifi size={20} /> </div>
+            <div>
+              <p className="text-sm font-bold">发现响应网卡</p>
+              <p className="text-xs text-text-secondary">选择与移动端相同网段的网卡</p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <select
+              value={discoveryInterface}
+              onChange={(e) => setDiscoveryInterface(e.target.value)}
+              className="flex-1 bg-bg-deep/50 border border-border-subtle rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-accent-blue transition"
+            >
+              <option value="">自动选择（默认）</option>
+              {networkInterfaces.map((item) => (
+                <option key={`${item.name}-${item.ip}`} value={item.name}>
+                  {item.name} ({item.ip})
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={handleInterfaceSave}
+              className={`px-6 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer ${interfaceSaved ? 'bg-accent-green text-white' : 'bg-accent-blue text-white hover:shadow-lg hover:shadow-accent-blue/30'}`}
+            >
+              {interfaceSaved ? '已保存' : '应用'}
+            </button>
+          </div>
+          {networkInterfaces.length === 0 && (
+            <p className="text-xs text-text-secondary">未检测到可用网卡，将继续使用自动地址。</p>
+          )}
         </div>
 
         {/* 外观设置 */}

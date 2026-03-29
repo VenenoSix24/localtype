@@ -26,6 +26,7 @@ pub struct TrustedClient {
 pub struct AppConfig {
     pub device_name: String,
     pub server_id: String,
+    pub discovery_interface: Option<String>,
 }
 
 impl Default for AppConfig {
@@ -35,6 +36,7 @@ impl Default for AppConfig {
                 .map(|h| h.to_string_lossy().into_owned())
                 .unwrap_or_else(|_| "LocalType Desktop".to_string()),
             server_id: uuid::Uuid::new_v4().to_string(),
+            discovery_interface: None,
         }
     }
 }
