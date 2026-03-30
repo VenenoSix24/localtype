@@ -346,7 +346,7 @@ function SettingsPage({ onRefresh }: { onRefresh: () => void }) {
   };
 
   return (
-    <div className="flex flex-col h-full p-6 space-y-8 animate-fade-in max-w-2xl mx-auto">
+    <div className="flex flex-col min-h-full p-6 space-y-8 animate-fade-in max-w-2xl mx-auto">
       <h1 className="text-3xl font-bold font-heading tracking-tight">设置</h1>
 
       <div className="glass-card rounded-3xl overflow-hidden divide-y divide-border-subtle">
@@ -388,7 +388,7 @@ function SettingsPage({ onRefresh }: { onRefresh: () => void }) {
             <select
               value={discoveryInterface}
               onChange={(e) => setDiscoveryInterface(e.target.value)}
-              className="flex-1 bg-bg-deep/50 border border-border-subtle rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-accent-blue transition"
+              className="flex-1 bg-bg-deep/50 border border-border-subtle rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-accent-blue transition cursor-pointer appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%22currentColor%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22m19%209-7%207-7-7%22%20%2F%3E%3C%2Fsvg%3E')] bg-size-[1.25rem_1.25rem] bg-position-[right_1rem_center] bg-no-repeat pr-10"
             >
               <option value="">自动选择（默认）</option>
               {networkInterfaces.map((item) => (
@@ -405,7 +405,7 @@ function SettingsPage({ onRefresh }: { onRefresh: () => void }) {
             </button>
           </div>
           {networkInterfaces.length === 0 && (
-            <p className="text-xs text-text-secondary">未检测到可用网卡，将继续使用自动地址。</p>
+            <p className="text-xs text-text-secondary mt-2">未检测到可用网卡，将继续使用自动地址。</p>
           )}
         </div>
 
@@ -450,7 +450,7 @@ function SettingsPage({ onRefresh }: { onRefresh: () => void }) {
       </div>
 
       <div className="text-center mt-auto">
-        <p className="text-[10px] text-text-muted font-mono tracking-widest uppercase">LocalType v1.2.3</p>
+        <p className="text-[10px] text-text-muted font-mono tracking-widest uppercase">LocalType v1.2.4</p>
       </div>
     </div>
   )
