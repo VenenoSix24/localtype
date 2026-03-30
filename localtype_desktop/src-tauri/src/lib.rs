@@ -250,7 +250,11 @@ pub fn run() {
             let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
 
             // 加载自定义托盘图标
-            let tray_icon = tauri::image::Image::from_bytes(include_bytes!("../icons/tray.png"))?;
+            #[cfg(target_os = "macos")]
+            let tray_icon = tauri::image::Image::from_bytes(include_bytes!("../icons/tray.png"))?; // macOS 使用白色图标
+
+            #[cfg(not(target_os = "macos"))]
+            let tray_icon = tauri::image::Image::from_bytes(include_bytes!("../icons/tray_all.png"))?; // Windows/Linux 使用彩色图标
 
             let _tray = TrayIconBuilder::new()
                 .icon(tray_icon)

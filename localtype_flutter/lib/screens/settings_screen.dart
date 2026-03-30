@@ -58,7 +58,7 @@ class SettingsScreen extends StatelessWidget {
             context,
             icon: Icons.info_outline_rounded,
             title: '软件版本',
-            subtitle: '点击检查更新 | 当前版本 v1.2.3',
+            subtitle: '点击检查更新 | 当前版本 v1.2.4',
             color: Colors.teal,
             onTap: () {
               ScaffoldMessenger.of(context).showSnackBar(
