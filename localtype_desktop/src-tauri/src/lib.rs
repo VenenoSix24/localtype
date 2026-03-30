@@ -6,7 +6,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::{
-    net::SocketAddr,
+    net::{IpAddr, SocketAddr},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -65,21 +65,48 @@ struct DevicePayload {
     current_ip: Option<String>,
 }
 
+#[derive(Clone, Serialize)]
+struct NetworkInterfacePayload {
+    name: String,
+    ip: String,
+}
+
+fn list_network_interfaces() -> Vec<(String, IpAddr)> {
+    let mut interfaces: Vec<(String, IpAddr)> = local_ip_address::list_afinet_netifas()
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|(_, ip)| matches!(ip, IpAddr::V4(v4) if !v4.is_loopback()))
+        .collect();
+    interfaces.sort_by(|a, b| a.0.cmp(&b.0));
+    interfaces
+}
+
+fn resolve_discovery_ip(config: &server_state::AppConfig) -> IpAddr {
+    if let Some(interface_name) = config.discovery_interface.as_deref() {
+        if let Some((_, ip)) = list_network_interfaces()
+            .into_iter()
+            .find(|(name, _)| name == interface_name)
+        {
+            return ip;
+        }
+    }
+
+    local_ip_address::local_ip().unwrap_or("127.0.0.1".parse().unwrap())
+}
+
 // ====== Tauri Commands ======
 
 /// 获取服务器信息（IP + 端口 + 设备名）
 #[tauri::command]
 fn get_server_info(state: tauri::State<'_, ServerState>) -> serde_json::Value {
-    let ip = local_ip_address::local_ip()
-        .map(|ip| ip.to_string())
-        .unwrap_or_else(|_| "127.0.0.1".to_string());
-    
     let config = state.config.lock().unwrap();
+    let ip = resolve_discovery_ip(&config).to_string();
     serde_json::json!({
         "ip": ip,
         "port": WSS_PORT,
         "device_name": config.device_name,
-        "server_id": config.server_id
+        "server_id": config.server_id,
+        "discovery_interface": config.discovery_interface
     })
 }
 
@@ -94,6 +121,43 @@ fn get_app_config(state: tauri::State<'_, ServerState>) -> server_state::AppConf
 fn update_device_name(name: String, state: tauri::State<'_, ServerState>) -> bool {
     let mut config = state.config.lock().unwrap();
     config.device_name = name;
+    drop(config);
+    let _ = state.save_config();
+    true
+}
+
+/// 获取可用网卡列表
+#[tauri::command]
+fn get_network_interfaces(state: tauri::State<'_, ServerState>) -> serde_json::Value {
+    let interfaces: Vec<NetworkInterfacePayload> = list_network_interfaces()
+        .into_iter()
+        .map(|(name, ip)| NetworkInterfacePayload {
+            name,
+            ip: ip.to_string(),
+        })
+        .collect();
+
+    let selected = state.config.lock().unwrap().discovery_interface.clone();
+    serde_json::json!({
+        "interfaces": interfaces,
+        "selected": selected
+    })
+}
+
+/// 更新发现响应所使用的网卡
+#[tauri::command]
+fn update_discovery_interface(interface_name: Option<String>, state: tauri::State<'_, ServerState>) -> bool {
+    let normalized = interface_name.and_then(|name| {
+        let trimmed = name.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed.to_string())
+        }
+    });
+
+    let mut config = state.config.lock().unwrap();
+    config.discovery_interface = normalized;
     drop(config);
     let _ = state.save_config();
     true
@@ -172,6 +236,8 @@ pub fn run() {
             get_app_config,
             update_device_name,
             update_device_alias,
+            get_network_interfaces,
+            update_discovery_interface,
         ])
         .setup(move |app| {
             let app_handle = app.handle().clone();
@@ -306,17 +372,29 @@ async fn run_discovery_service(state: ServerState) -> std::io::Result<()> {
         debug!("收到 UDP 广播 from {}: {}", addr, msg);
 
         if msg.trim() == "localtype_discovery" {
-            let local_ip = local_ip_address::local_ip().unwrap_or("127.0.0.1".parse().unwrap());
-            let (device_name, server_id) = {
+            let (local_ip, device_name, server_id, interface_name) = {
                 let config = state.config.lock().unwrap();
-                (config.device_name.clone(), config.server_id.clone())
+                (
+                    resolve_discovery_ip(&config),
+                    config.device_name.clone(),
+                    config.server_id.clone(),
+                    config.discovery_interface.clone(),
+                )
             };
             let os_name = std::env::consts::OS;
             
             // Format: localtype_server:[IP]|[NAME]|[OS]|[ID]
             let response = format!("localtype_server:{}|{}|{}|{}", local_ip, device_name, os_name, server_id);
             socket.send_to(response.as_bytes(), addr).await?;
-            info!("已响应发现请求 from {}: {} (OS: {}, ID: {})", addr, device_name, os_name, server_id);
+            info!(
+                "已响应发现请求 from {}: {} (IP: {}, 网卡: {}, OS: {}, ID: {})",
+                addr,
+                device_name,
+                local_ip,
+                interface_name.unwrap_or_else(|| "auto".to_string()),
+                os_name,
+                server_id
+            );
         }
     }
 }
