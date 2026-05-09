@@ -450,7 +450,7 @@ function SettingsPage({ onRefresh }: { onRefresh: () => void }) {
       </div>
 
       <div className="text-center mt-auto">
-        <p className="text-[10px] text-text-muted font-mono tracking-widest uppercase">LocalType v1.2.4</p>
+        <p className="text-[10px] text-text-muted font-mono tracking-widest uppercase">LocalType v1.2.5</p>
       </div>
     </div>
   )
