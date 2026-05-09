@@ -289,9 +289,12 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> toggleFavorite(
       String ip, String name, String? os, String? serverId) async {
-    final isSaved = _pairedDevices.any((d) => d.ip == ip);
+    // 优先使用 serverId 识别设备，避免 IP 变化导致重复条目
+    final isSaved = serverId != null
+        ? _pairedDevices.any((d) => d.serverId == serverId)
+        : _pairedDevices.any((d) => d.ip == ip);
     if (isSaved) {
-      await removePairedDevice(ip);
+      await removePairedDevice(ip, serverId: serverId);
       addLog('已从收藏库移除: $name');
     } else {
       await _savePairedDevice(ip, name, os, serverId);
@@ -301,7 +304,10 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> _savePairedDevice(
       String ip, String name, String? os, String? serverId) async {
-    final index = _pairedDevices.indexWhere((d) => d.ip == ip);
+    // 优先使用 serverId 匹配已有设备，IP 变化时自动更新而非新增
+    final index = serverId != null
+        ? _pairedDevices.indexWhere((d) => d.serverId == serverId)
+        : _pairedDevices.indexWhere((d) => d.ip == ip);
     if (index != -1) {
       final existing = _pairedDevices[index];
       _pairedDevices[index] = DiscoveredDevice(
@@ -363,8 +369,11 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  Future<void> renamePairedDevice(String ip, String newName) async {
-    final index = _pairedDevices.indexWhere((d) => d.ip == ip);
+  Future<void> renamePairedDevice(String ip, String newName, {String? serverId}) async {
+    // 优先使用 serverId 匹配设备
+    final index = serverId != null
+        ? _pairedDevices.indexWhere((d) => d.serverId == serverId)
+        : _pairedDevices.indexWhere((d) => d.ip == ip);
     if (index != -1) {
       final d = _pairedDevices[index];
       _pairedDevices[index] = DiscoveredDevice(
@@ -381,21 +390,12 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  Future<void> removePairedDevice(String ip) async {
+  Future<void> removePairedDevice(String ip, {String? serverId}) async {
     // 配对状态（Token）独立于收藏列表
-
-    _pairedDevices.removeWhere((d) => d.ip == ip);
-    final prefs = await SharedPreferences.getInstance();
-    final jsonList = _pairedDevices
-        .map((d) => jsonEncode({
-              'ip': d.ip,
-              'name': d.name,
-              'os': d.os,
-              'discoveredAt': d.discoveredAt.toIso8601String(),
-            }))
-        .toList();
-    await prefs.setStringList('paired_devices', jsonList);
-    notifyListeners();
+    // 优先使用 serverId 匹配，兼容旧版无 ID 场景
+    _pairedDevices.removeWhere((d) =>
+        serverId != null ? d.serverId == serverId : d.ip == ip);
+    await _persistPairedDevices();
   }
 
   String _getTodayKey() {
@@ -538,7 +538,10 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
             final osName = parts.length > 2 ? parts[2] : 'desktop';
             final serverId = parts.length > 3 ? parts[3] : null;
 
-            if (!_discoveredDevices.any((dev) => dev.ip == ip)) {
+            // 使用 serverId 去重，避免同一设备因 IP 变化出现多个条目
+            final existingIdx = _discoveredDevices.indexWhere((dev) =>
+                dev.ip == ip || (serverId != null && dev.serverId == serverId));
+            if (existingIdx == -1) {
               _discoveredDevices.add(DiscoveredDevice(
                 ip: ip,
                 name: serverName,
@@ -548,17 +551,27 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
               ));
               addLog(
                   '发现设备: $serverName ($ip) [$osName] ID: ${serverId ?? "NONE"}');
-              notifyListeners();
+            } else {
+              // 更新已存在设备的最新 IP 和信息
+              _discoveredDevices[existingIdx] = DiscoveredDevice(
+                ip: ip,
+                name: serverName,
+                os: osName,
+                serverId: serverId,
+                discoveredAt: DateTime.now(),
+              );
+            }
+            notifyListeners();
 
-              // 如果发现的设备详情有更新，同步到已配对列表
-              final pairedIndex = _pairedDevices.indexWhere((d) => d.ip == ip);
-              if (pairedIndex != -1) {
-                final p = _pairedDevices[pairedIndex];
-                if (p.name != serverName ||
-                    p.os != osName ||
-                    p.serverId != serverId) {
-                  await _savePairedDevice(ip, serverName, osName, serverId);
-                }
+            // 同步到已配对列表：优先使用 serverId 匹配
+            final pairedIndex = serverId != null
+                ? _pairedDevices.indexWhere((d) => d.serverId == serverId)
+                : _pairedDevices.indexWhere((d) => d.ip == ip);
+            if (pairedIndex != -1) {
+              final p = _pairedDevices[pairedIndex];
+              if (p.ip != ip || p.name != serverName ||
+                  p.os != osName || p.serverId != serverId) {
+                await _savePairedDevice(ip, serverName, osName, serverId);
               }
             }
           }
