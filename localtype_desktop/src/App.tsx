@@ -4,7 +4,8 @@ import { listen } from "@tauri-apps/api/event";
 import { HashRouter, Routes, Route, Link, useLocation } from "react-router-dom";
 import {
   Settings, Moon, Monitor,
-  Wifi, Activity, Smartphone, Power, Trash2, Edit2, ScrollText, CheckCircle2
+  Wifi, Activity, Smartphone, Power, Trash2, Edit2, ScrollText, CheckCircle2,
+  Download, RefreshCw, Check, AlertCircle
 } from "lucide-react";
 
 // ====== 类型定义 ======
@@ -292,6 +293,13 @@ function SettingsPage({ onRefresh }: { onRefresh: () => void }) {
   const [interfaceSaved, setInterfaceSaved] = useState(false);
   const { theme, setTheme } = useContext(ThemeContext);
 
+  // Update state
+  const [currentVersion, setCurrentVersion] = useState("");
+  const [latestVersion, setLatestVersion] = useState("");
+  const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "available" | "up-to-date" | "downloading" | "downloaded" | "error">("idle");
+  const [downloadProgress, setDownloadProgress] = useState<{ chunk_length: number; content_length: number | null } | null>(null);
+  const [releaseNotes, setReleaseNotes] = useState("");
+
   useEffect(() => {
     // 加载配置和网卡列表
     invoke<any>("get_app_config").then(cfg => {
@@ -309,6 +317,16 @@ function SettingsPage({ onRefresh }: { onRefresh: () => void }) {
     import("@tauri-apps/plugin-autostart").then(async (autostart) => {
       try { setAutoStart(await autostart.isEnabled()); } catch (e) { }
     });
+
+    // 加载版本号并静默检查更新
+    invoke<string>("get_current_version").then(v => setCurrentVersion(v));
+    handleCheckUpdate(true);
+
+    // 监听下载进度
+    const unlisten = listen<any>("update-download-progress", (e) => {
+      setDownloadProgress(e.payload);
+    });
+    return () => { unlisten.then(f => f()); };
   }, []);
 
   const handleNameSave = async () => {
@@ -343,6 +361,40 @@ function SettingsPage({ onRefresh }: { onRefresh: () => void }) {
     } catch (e) {
       console.error(e);
     }
+  };
+
+  const handleCheckUpdate = async (silent = false) => {
+    if (updateStatus === "checking") return;
+    setUpdateStatus("checking");
+    try {
+      const result = await invoke<any>("check_for_updates");
+      if (result.available) {
+        setUpdateStatus("available");
+        setLatestVersion(result.latest_version);
+        setReleaseNotes(result.release_notes || "");
+      } else {
+        setUpdateStatus("up-to-date");
+      }
+    } catch (e) {
+      if (!silent) setUpdateStatus("error");
+      else setUpdateStatus("idle");
+    }
+  };
+
+  const handleInstallUpdate = async () => {
+    setUpdateStatus("downloading");
+    setDownloadProgress(null);
+    try {
+      await invoke("download_and_install_update");
+      setUpdateStatus("downloaded");
+    } catch (e) {
+      setUpdateStatus("error");
+    }
+  };
+
+  const handleSkipVersion = async () => {
+    await invoke("skip_version", { version: latestVersion });
+    setUpdateStatus("idle");
   };
 
   return (
@@ -447,10 +499,116 @@ function SettingsPage({ onRefresh }: { onRefresh: () => void }) {
             <div className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${autoStart ? 'translate-x-6' : ''}`} />
           </div>
         </div>
+
+        {/* 检查更新 */}
+        <div className="p-6 hover:bg-white/5 transition">
+          {/* 主行：左右结构 */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-accent-blue/10 rounded-xl text-accent-blue"> <Download size={20} /> </div>
+              <div>
+                <p className="text-sm font-bold">检查更新</p>
+                <p className="text-xs text-text-secondary">当前版本: v{currentVersion}</p>
+              </div>
+            </div>
+
+            {updateStatus === "idle" && (
+              <button
+                onClick={() => handleCheckUpdate()}
+                className="px-6 py-2 rounded-xl text-sm font-bold bg-accent-blue text-white hover:shadow-lg hover:shadow-accent-blue/30 transition-all cursor-pointer"
+              >
+                检查更新
+              </button>
+            )}
+
+            {updateStatus === "checking" && (
+              <div className="flex items-center gap-2 text-text-secondary">
+                <RefreshCw size={16} className="animate-spin" />
+                <span className="text-sm">检查中...</span>
+              </div>
+            )}
+
+            {updateStatus === "up-to-date" && (
+              <div className="flex items-center gap-2 text-accent-green">
+                <Check size={16} />
+                <span className="text-sm font-bold">已是最新版本</span>
+              </div>
+            )}
+
+            {updateStatus === "available" && (
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleSkipVersion}
+                  className="text-xs text-text-muted hover:text-text-secondary transition cursor-pointer"
+                >
+                  跳过此版本
+                </button>
+                <button
+                  onClick={handleInstallUpdate}
+                  className="px-6 py-2 rounded-xl text-sm font-bold bg-accent-green text-white hover:shadow-lg hover:shadow-accent-green/30 transition-all cursor-pointer"
+                >
+                  立即更新
+                </button>
+              </div>
+            )}
+
+            {updateStatus === "downloading" && (
+              <span className="text-sm text-text-secondary">下载中...</span>
+            )}
+
+            {updateStatus === "downloaded" && (
+              <div className="flex items-center gap-2 text-accent-green">
+                <Check size={16} />
+                <span className="text-sm font-bold">即将安装并重启</span>
+              </div>
+            )}
+
+            {updateStatus === "error" && (
+              <button
+                onClick={() => handleCheckUpdate()}
+                className="flex items-center gap-2 text-accent-destruct text-sm hover:underline cursor-pointer"
+              >
+                <AlertCircle size={16} />
+                <span>重试</span>
+              </button>
+            )}
+          </div>
+
+          {/* 展开内容：有更新时显示版本号和日志 */}
+          {updateStatus === "available" && (
+            <div className="mt-3 ml-11 space-y-2">
+              <p className="text-sm text-text-primary">发现新版本 <span className="font-bold text-accent-blue">v{latestVersion}</span></p>
+              {releaseNotes && (
+                <p className="text-xs text-text-secondary bg-bg-deep/50 rounded-xl p-3 max-h-24 overflow-y-auto whitespace-pre-wrap">{releaseNotes}</p>
+              )}
+            </div>
+          )}
+
+          {/* 下载进度条 */}
+          {updateStatus === "downloading" && (
+            <div className="mt-3 ml-11 space-y-1">
+              <div className="w-full bg-accent-blue/20 rounded-full h-2">
+                <div
+                  className="bg-accent-blue h-2 rounded-full transition-all"
+                  style={{
+                    width: downloadProgress?.content_length
+                      ? `${Math.round((downloadProgress.chunk_length / downloadProgress.content_length) * 100)}%`
+                      : '0%'
+                  }}
+                />
+              </div>
+              {downloadProgress?.content_length && (
+                <p className="text-xs text-text-muted">
+                  {Math.round(downloadProgress.chunk_length / 1024 / 1024 * 10) / 10} MB / {Math.round(downloadProgress.content_length / 1024 / 1024 * 10) / 10} MB
+                </p>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="text-center mt-auto">
-        <p className="text-[10px] text-text-muted font-mono tracking-widest uppercase">LocalType v1.2.5</p>
+        <p className="text-[10px] text-text-muted font-mono tracking-widest uppercase">LocalType v{currentVersion}</p>
       </div>
     </div>
   )

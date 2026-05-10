@@ -211,6 +211,73 @@ fn toggle_pause(paused: tauri::State<'_, Arc<AtomicBool>>) -> bool {
     new_state
 }
 
+/// 获取当前版本号
+#[tauri::command]
+fn get_current_version(app: tauri::AppHandle) -> String {
+    app.config().version.clone().unwrap_or_else(|| "unknown".to_string())
+}
+
+/// 检查更新
+#[tauri::command]
+async fn check_for_updates(app: tauri::AppHandle, state: tauri::State<'_, ServerState>) -> Result<serde_json::Value, String> {
+    use tauri_plugin_updater::UpdaterExt;
+    let updater = app.updater().map_err(|e| e.to_string())?;
+    let update = updater.check().await.map_err(|e| e.to_string())?;
+
+    match update {
+        Some(update) => {
+            let skipped = {
+                let config = state.config.lock().unwrap();
+                config.skipped_version.as_deref() == Some(&update.version)
+            };
+            Ok(serde_json::json!({
+                "available": !skipped,
+                "current_version": update.current_version,
+                "latest_version": update.version,
+                "release_notes": update.body,
+                "skipped": skipped,
+            }))
+        }
+        None => Ok(serde_json::json!({
+            "available": false,
+        }))
+    }
+}
+
+/// 下载并安装更新
+#[tauri::command]
+async fn download_and_install_update(app: tauri::AppHandle) -> Result<(), String> {
+    use tauri_plugin_updater::UpdaterExt;
+    let updater = app.updater().map_err(|e| e.to_string())?;
+    let update = updater.check().await.map_err(|e| e.to_string())?;
+
+    if let Some(update) = update {
+        let app_handle = app.clone();
+        update.download_and_install(
+            |chunk_length, content_length| {
+                let _ = app_handle.emit("update-download-progress", serde_json::json!({
+                    "chunk_length": chunk_length,
+                    "content_length": content_length,
+                }));
+            },
+            || {
+                let _ = app_handle.emit("update-download-complete", ());
+            },
+        ).await.map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// 跳过某个版本
+#[tauri::command]
+fn skip_version(version: String, state: tauri::State<'_, ServerState>) -> bool {
+    let mut config = state.config.lock().unwrap();
+    config.skipped_version = Some(version);
+    drop(config);
+    let _ = state.save_config();
+    true
+}
+
 // ====== 应用入口 ======
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -226,6 +293,7 @@ pub fn run() {
             MacosLauncher::LaunchAgent,
             Some(vec!["--minimized"]), // 可选：启动时最小化参数
         ))
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(server_state.clone())
         .manage(is_paused.clone())
         .invoke_handler(tauri::generate_handler![
@@ -238,6 +306,10 @@ pub fn run() {
             update_device_alias,
             get_network_interfaces,
             update_discovery_interface,
+            get_current_version,
+            check_for_updates,
+            download_and_install_update,
+            skip_version,
         ])
         .setup(move |app| {
             let app_handle = app.handle().clone();
