@@ -38,12 +38,4 @@
       "icons/icon.ico"
     ]
   },
-  "plugins": {
-    "updater": {
-      "endpoints": [
-        "https://github.com/VenenoSix24/localtype/releases/latest/download/latest.json"
-      ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEIzQkQ0MUQ2QTUxRDM4MEUKUldRT09CMmwxa0c5czNETDBwYU9NTVBzNnZvT1o0ZTh3bElyeGJOK2xMRG0raHpHUm9kOEVPcFIK"
-    }
-  }
 }

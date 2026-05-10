@@ -296,9 +296,9 @@ function SettingsPage({ onRefresh }: { onRefresh: () => void }) {
   // Update state
   const [currentVersion, setCurrentVersion] = useState("");
   const [latestVersion, setLatestVersion] = useState("");
-  const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "available" | "up-to-date" | "downloading" | "downloaded" | "error">("idle");
-  const [downloadProgress, setDownloadProgress] = useState<{ chunk_length: number; content_length: number | null } | null>(null);
+  const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "available" | "up-to-date" | "error">("idle");
   const [releaseNotes, setReleaseNotes] = useState("");
+  const [downloadUrl, setDownloadUrl] = useState("");
 
   useEffect(() => {
     // 加载配置和网卡列表
@@ -321,12 +321,6 @@ function SettingsPage({ onRefresh }: { onRefresh: () => void }) {
     // 加载版本号并静默检查更新
     invoke<string>("get_current_version").then(v => setCurrentVersion(v));
     handleCheckUpdate(true);
-
-    // 监听下载进度
-    const unlisten = listen<any>("update-download-progress", (e) => {
-      setDownloadProgress(e.payload);
-    });
-    return () => { unlisten.then(f => f()); };
   }, []);
 
   const handleNameSave = async () => {
@@ -372,6 +366,7 @@ function SettingsPage({ onRefresh }: { onRefresh: () => void }) {
         setUpdateStatus("available");
         setLatestVersion(result.latest_version);
         setReleaseNotes(result.release_notes || "");
+        setDownloadUrl(result.download_url || "");
       } else {
         setUpdateStatus("up-to-date");
       }
@@ -381,14 +376,9 @@ function SettingsPage({ onRefresh }: { onRefresh: () => void }) {
     }
   };
 
-  const handleInstallUpdate = async () => {
-    setUpdateStatus("downloading");
-    setDownloadProgress(null);
-    try {
-      await invoke("download_and_install_update");
-      setUpdateStatus("downloaded");
-    } catch (e) {
-      setUpdateStatus("error");
+  const handleOpenDownload = async () => {
+    if (downloadUrl) {
+      await invoke("open_download_page", { url: downloadUrl });
     }
   };
 
@@ -544,22 +534,11 @@ function SettingsPage({ onRefresh }: { onRefresh: () => void }) {
                   跳过此版本
                 </button>
                 <button
-                  onClick={handleInstallUpdate}
+                  onClick={handleOpenDownload}
                   className="px-6 py-2 rounded-xl text-sm font-bold bg-accent-green text-white hover:shadow-lg hover:shadow-accent-green/30 transition-all cursor-pointer"
                 >
-                  立即更新
+                  前往下载
                 </button>
-              </div>
-            )}
-
-            {updateStatus === "downloading" && (
-              <span className="text-sm text-text-secondary">下载中...</span>
-            )}
-
-            {updateStatus === "downloaded" && (
-              <div className="flex items-center gap-2 text-accent-green">
-                <Check size={16} />
-                <span className="text-sm font-bold">即将安装并重启</span>
               </div>
             )}
 
@@ -584,26 +563,6 @@ function SettingsPage({ onRefresh }: { onRefresh: () => void }) {
             </div>
           )}
 
-          {/* 下载进度条 */}
-          {updateStatus === "downloading" && (
-            <div className="mt-3 ml-11 space-y-1">
-              <div className="w-full bg-accent-blue/20 rounded-full h-2">
-                <div
-                  className="bg-accent-blue h-2 rounded-full transition-all"
-                  style={{
-                    width: downloadProgress?.content_length
-                      ? `${Math.round((downloadProgress.chunk_length / downloadProgress.content_length) * 100)}%`
-                      : '0%'
-                  }}
-                />
-              </div>
-              {downloadProgress?.content_length && (
-                <p className="text-xs text-text-muted">
-                  {Math.round(downloadProgress.chunk_length / 1024 / 1024 * 10) / 10} MB / {Math.round(downloadProgress.content_length / 1024 / 1024 * 10) / 10} MB
-                </p>
-              )}
-            </div>
-          )}
         </div>
       </div>
 
