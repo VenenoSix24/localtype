@@ -282,8 +282,9 @@ async fn check_for_updates(app: tauri::AppHandle, state: tauri::State<'_, Server
 
 /// 打开下载页面
 #[tauri::command]
-async fn open_download_page(url: String) -> Result<(), String> {
-    open::that(&url).map_err(|e| e.to_string())
+async fn open_download_page(url: String, app: tauri::AppHandle) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    app.opener().open_url(url, None::<&str>).map_err(|e| e.to_string())
 }
 
 /// 根据当前平台从 assets 中找到对应的下载链接
