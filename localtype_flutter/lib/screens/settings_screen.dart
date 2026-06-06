@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../providers/local_type_provider.dart';
-import '../services/update_service.dart';
+import '../utils/update_dialog.dart';
 import 'settings_device_screen.dart';
 import 'settings_appearance_screen.dart';
 import 'settings_typing_screen.dart';
@@ -62,21 +62,19 @@ class SettingsScreen extends StatelessWidget {
             context,
             icon: Icons.info_outline_rounded,
             title: '软件版本',
-            subtitle: provider.updateInfo?.available == true
-                ? '发现新版本 v${provider.updateInfo!.latestVersion}，点击查看'
-                : '点击检查更新 | 当前版本 v${provider.currentVersion}',
+            subtitle: '当前版本 v${provider.currentVersion}',
             color: Colors.teal,
             onTap: () async {
               if (provider.isCheckingUpdate) return;
               await provider.checkForUpdate();
               if (!context.mounted) return;
               final info = provider.updateInfo;
-              if (info == null || !info.available) {
+              if (info != null && info.available) {
+                showUpdateDialog(context, provider, info);
+              } else {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('已是最新版本')),
                 );
-              } else {
-                _showUpdateDialog(context, provider, info);
               }
             },
           ),
@@ -103,51 +101,6 @@ class SettingsScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24),
-        ],
-      ),
-    );
-  }
-
-  void _showUpdateDialog(
-      BuildContext context, LocalTypeProvider provider, UpdateInfo info) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('发现新版本 v${info.latestVersion}'),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('当前版本: v${info.currentVersion}'),
-              const SizedBox(height: 12),
-              if (info.releaseNotes.isNotEmpty) ...[
-                const Text('更新日志:',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                Text(info.releaseNotes),
-              ],
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              provider.skipCurrentUpdate();
-              Navigator.pop(ctx);
-            },
-            child: const Text('跳过此版本'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              if (info.downloadUrl.isNotEmpty) {
-                launchUrl(Uri.parse(info.downloadUrl),
-                    mode: LaunchMode.externalApplication);
-              }
-            },
-            child: const Text('下载更新'),
-          ),
         ],
       ),
     );

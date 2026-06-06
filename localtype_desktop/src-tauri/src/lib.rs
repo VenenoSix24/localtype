@@ -219,8 +219,12 @@ fn get_current_version(app: tauri::AppHandle) -> String {
 
 /// 比较 semver 版本号，返回 a > b 时为正数
 fn compare_versions(a: &str, b: &str) -> i32 {
+    // 去除 pre-release 后缀（如 "1.2.3-beta" → "1.2.3"）
+    let clean = |s: &str| -> String {
+        s.split('-').next().unwrap_or(s).to_string()
+    };
     let parse = |s: &str| -> Vec<i32> {
-        s.split('.').map(|p| p.parse().unwrap_or(0)).collect()
+        clean(s).split('.').map(|p| p.parse().unwrap_or(0)).collect()
     };
     let a_parts = parse(a);
     let b_parts = parse(b);
@@ -271,7 +275,7 @@ async fn check_for_updates(app: tauri::AppHandle, state: tauri::State<'_, Server
     };
 
     Ok(serde_json::json!({
-        "available": !skipped,
+        "available": true,
         "current_version": current_version,
         "latest_version": latest_version,
         "release_notes": release_notes,
@@ -296,16 +300,21 @@ fn find_download_url(assets: &serde_json::Value) -> String {
 
     // 根据当前平台匹配文件名关键字
     #[cfg(target_os = "macos")]
-    let keyword = if cfg!(target_arch = "aarch64") { "macos-aarch64" } else { "macos-x86_64" };
+    let keywords: Vec<&str> = if cfg!(target_arch = "aarch64") {
+        vec!["darwin-aarch64", "macos-aarch64"]
+    } else {
+        vec!["darwin-x64", "macos-x86_64"]
+    };
     #[cfg(target_os = "windows")]
-    let keyword = "windows";
+    let keywords: Vec<&str> = vec!["windows"];
     #[cfg(target_os = "linux")]
-    let keyword = "linux";
+    let keywords: Vec<&str> = vec!["linux"];
 
     for asset in assets {
         let name = asset["name"].as_str().unwrap_or("");
         let url = asset["browser_download_url"].as_str().unwrap_or("");
-        if name.contains(keyword) && (name.ends_with(".dmg") || name.ends_with(".msi") || name.ends_with(".exe") || name.ends_with(".AppImage") || name.ends_with(".deb")) {
+        let matched = keywords.iter().any(|kw| name.contains(kw));
+        if matched && (name.ends_with(".dmg") || name.ends_with(".msi") || name.ends_with(".exe") || name.ends_with(".AppImage") || name.ends_with(".deb")) {
             return url.to_string();
         }
     }

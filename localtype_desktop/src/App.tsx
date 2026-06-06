@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, createContext, useContext, ReactNode } from "react";
+import { useState, useEffect, useCallback, useRef, createContext, useContext, ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { HashRouter, Routes, Route, Link, useLocation } from "react-router-dom";
@@ -284,7 +284,12 @@ function DevicesPage({ devices, onRemoveDevice, onUpdateAlias }: any) {
   );
 }
 
-function SettingsPage({ onRefresh }: { onRefresh: () => void }) {
+function SettingsPage({ onRefresh, currentVersion, updateStatus, onCheckUpdate }: {
+  onRefresh: () => void;
+  currentVersion: string;
+  updateStatus: string;
+  onCheckUpdate: () => void;
+}) {
   const [autoStart, setAutoStart] = useState(false);
   const [deviceName, setDeviceName] = useState("");
   const [networkInterfaces, setNetworkInterfaces] = useState<Array<{ name: string; ip: string }>>([]);
@@ -292,13 +297,6 @@ function SettingsPage({ onRefresh }: { onRefresh: () => void }) {
   const [saved, setSaved] = useState(false);
   const [interfaceSaved, setInterfaceSaved] = useState(false);
   const { theme, setTheme } = useContext(ThemeContext);
-
-  // Update state
-  const [currentVersion, setCurrentVersion] = useState("");
-  const [latestVersion, setLatestVersion] = useState("");
-  const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "available" | "up-to-date" | "error">("idle");
-  const [releaseNotes, setReleaseNotes] = useState("");
-  const [downloadUrl, setDownloadUrl] = useState("");
 
   useEffect(() => {
     // 加载配置和网卡列表
@@ -317,10 +315,6 @@ function SettingsPage({ onRefresh }: { onRefresh: () => void }) {
     import("@tauri-apps/plugin-autostart").then(async (autostart) => {
       try { setAutoStart(await autostart.isEnabled()); } catch (e) { }
     });
-
-    // 加载版本号并静默检查更新
-    invoke<string>("get_current_version").then(v => setCurrentVersion(v));
-    handleCheckUpdate(true);
   }, []);
 
   const handleNameSave = async () => {
@@ -355,36 +349,6 @@ function SettingsPage({ onRefresh }: { onRefresh: () => void }) {
     } catch (e) {
       console.error(e);
     }
-  };
-
-  const handleCheckUpdate = async (silent = false) => {
-    if (updateStatus === "checking") return;
-    setUpdateStatus("checking");
-    try {
-      const result = await invoke<any>("check_for_updates");
-      if (result.available) {
-        setUpdateStatus("available");
-        setLatestVersion(result.latest_version);
-        setReleaseNotes(result.release_notes || "");
-        setDownloadUrl(result.download_url || "");
-      } else {
-        setUpdateStatus("up-to-date");
-      }
-    } catch (e) {
-      if (!silent) setUpdateStatus("error");
-      else setUpdateStatus("idle");
-    }
-  };
-
-  const handleOpenDownload = async () => {
-    if (downloadUrl) {
-      await invoke("open_download_page", { url: downloadUrl });
-    }
-  };
-
-  const handleSkipVersion = async () => {
-    await invoke("skip_version", { version: latestVersion });
-    setUpdateStatus("idle");
   };
 
   return (
@@ -491,78 +455,41 @@ function SettingsPage({ onRefresh }: { onRefresh: () => void }) {
         </div>
 
         {/* 检查更新 */}
-        <div className="p-6 hover:bg-white/5 transition">
-          {/* 主行：左右结构 */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-accent-blue/10 rounded-xl text-accent-blue"> <Download size={20} /> </div>
-              <div>
-                <p className="text-sm font-bold">检查更新</p>
-                <p className="text-xs text-text-secondary">当前版本: v{currentVersion}</p>
-              </div>
+        <div className="p-6 flex items-center justify-between hover:bg-white/5 transition">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-accent-blue/10 rounded-xl text-accent-blue"> <Download size={20} /> </div>
+            <div>
+              <p className="text-sm font-bold">检查更新</p>
+              <p className="text-xs text-text-secondary">当前版本: v{currentVersion}</p>
             </div>
-
-            {updateStatus === "idle" && (
-              <button
-                onClick={() => handleCheckUpdate()}
-                className="px-6 py-2 rounded-xl text-sm font-bold bg-accent-blue text-white hover:shadow-lg hover:shadow-accent-blue/30 transition-all cursor-pointer"
-              >
-                检查更新
-              </button>
-            )}
-
-            {updateStatus === "checking" && (
-              <div className="flex items-center gap-2 text-text-secondary">
-                <RefreshCw size={16} className="animate-spin" />
-                <span className="text-sm">检查中...</span>
-              </div>
-            )}
-
-            {updateStatus === "up-to-date" && (
-              <div className="flex items-center gap-2 text-accent-green">
-                <Check size={16} />
-                <span className="text-sm font-bold">已是最新版本</span>
-              </div>
-            )}
-
-            {updateStatus === "available" && (
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={handleSkipVersion}
-                  className="text-xs text-text-muted hover:text-text-secondary transition cursor-pointer"
-                >
-                  跳过此版本
-                </button>
-                <button
-                  onClick={handleOpenDownload}
-                  className="px-6 py-2 rounded-xl text-sm font-bold bg-accent-green text-white hover:shadow-lg hover:shadow-accent-green/30 transition-all cursor-pointer"
-                >
-                  前往下载
-                </button>
-              </div>
-            )}
-
-            {updateStatus === "error" && (
-              <button
-                onClick={() => handleCheckUpdate()}
-                className="flex items-center gap-2 text-accent-destruct text-sm hover:underline cursor-pointer"
-              >
-                <AlertCircle size={16} />
-                <span>重试</span>
-              </button>
-            )}
           </div>
 
-          {/* 展开内容：有更新时显示版本号和日志 */}
-          {updateStatus === "available" && (
-            <div className="mt-3 ml-11 space-y-2">
-              <p className="text-sm text-text-primary">发现新版本 <span className="font-bold text-accent-blue">v{latestVersion}</span></p>
-              {releaseNotes && (
-                <p className="text-xs text-text-secondary bg-bg-deep/50 rounded-xl p-3 max-h-24 overflow-y-auto whitespace-pre-wrap">{releaseNotes}</p>
-              )}
+          {updateStatus === "checking" ? (
+            <div className="flex items-center gap-2 text-text-secondary">
+              <RefreshCw size={16} className="animate-spin" />
+              <span className="text-sm">检查中...</span>
             </div>
+          ) : updateStatus === "up-to-date" ? (
+            <div className="flex items-center gap-2 text-accent-green">
+              <Check size={16} />
+              <span className="text-sm font-bold">已是最新版本</span>
+            </div>
+          ) : updateStatus === "error" ? (
+            <button
+              onClick={onCheckUpdate}
+              className="flex items-center gap-2 text-accent-destruct text-sm hover:underline cursor-pointer"
+            >
+              <AlertCircle size={16} />
+              <span>重试</span>
+            </button>
+          ) : (
+            <button
+              onClick={onCheckUpdate}
+              className="px-6 py-2 rounded-xl text-sm font-bold bg-accent-blue text-white hover:shadow-lg hover:shadow-accent-blue/30 transition-all cursor-pointer"
+            >
+              检查更新
+            </button>
           )}
-
         </div>
       </div>
 
@@ -614,6 +541,16 @@ function AppLayout() {
   const [logs, setLogs] = useState<string[]>([]);
   const location = useLocation();
 
+  // Update state (lifted from SettingsPage)
+  const [currentVersion, setCurrentVersion] = useState("");
+  const [latestVersion, setLatestVersion] = useState("");
+  const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "available" | "up-to-date" | "error">("idle");
+  const [releaseNotes, setReleaseNotes] = useState("");
+  const [downloadUrl, setDownloadUrl] = useState("");
+  const [updateSkipped, setUpdateSkipped] = useState(false);
+  const [updateDialogDismissed, setUpdateDialogDismissed] = useState(false);
+  const manualCheckRef = useRef(false);
+
   const addLog = useCallback((msg: string) => {
     const time = new Date().toLocaleTimeString();
     setLogs(prev => [`[${time}] ${msg}`, ...prev].slice(0, 100));
@@ -636,8 +573,42 @@ function AppLayout() {
     fetchData();
   };
 
+  const handleCheckUpdate = async (silent = false) => {
+    if (updateStatus === "checking") return;
+    setUpdateStatus("checking");
+    try {
+      const result = await invoke<any>("check_for_updates");
+      if (result.available) {
+        setUpdateStatus("available");
+        setLatestVersion(result.latest_version);
+        setReleaseNotes(result.release_notes || "");
+        setDownloadUrl(result.download_url || "");
+        setUpdateSkipped(result.skipped || false);
+      } else {
+        setUpdateStatus("up-to-date");
+      }
+    } catch (e) {
+      if (!silent) setUpdateStatus("error");
+      else setUpdateStatus("idle");
+    }
+  };
+
+  const handleOpenDownload = async () => {
+    if (downloadUrl) {
+      await invoke("open_download_page", { url: downloadUrl });
+    }
+  };
+
+  const handleSkipVersion = async () => {
+    await invoke("skip_version", { version: latestVersion });
+    setUpdateStatus("idle");
+    setUpdateDialogDismissed(true);
+  };
+
   useEffect(() => {
     fetchData();
+    invoke<string>("get_current_version").then(v => setCurrentVersion(v));
+    handleCheckUpdate(true);
     const listeners = [
       listen<any>("status-changed", (e) => {
         addLog(e.payload.text);
@@ -709,9 +680,63 @@ function AppLayout() {
               />
             } />
             <Route path="/logs" element={<LogPage logs={logs} />} />
-            <Route path="/settings" element={<SettingsPage onRefresh={fetchData} />} />
+            <Route path="/settings" element={
+              <SettingsPage
+                onRefresh={fetchData}
+                currentVersion={currentVersion}
+                updateStatus={updateStatus}
+                onCheckUpdate={() => { manualCheckRef.current = true; setUpdateDialogDismissed(false); handleCheckUpdate(false); }}
+              />
+            } />
           </Routes>
         </div>
+
+        {/* 更新弹窗 */}
+        {updateStatus === "available" && !updateDialogDismissed && (!updateSkipped || manualCheckRef.current) && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center p-8 bg-bg-deep/80 backdrop-blur-xl animate-fade-in">
+            <div className="glass-card w-full max-w-md p-8 rounded-4xl space-y-6 animate-scale-in border-accent-blue/40 border-2 shadow-[0_0_50px_rgba(59,130,246,0.3)]">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 bg-accent-blue/10 rounded-2xl flex items-center justify-center text-accent-blue">
+                  <Download size={28} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-text-primary">发现新版本</h3>
+                  <p className="text-sm text-accent-blue font-bold">v{latestVersion}</p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs text-text-secondary">当前版本: v{currentVersion}</p>
+                {releaseNotes && (
+                  <div className="bg-bg-deep/50 rounded-2xl p-4 max-h-32 overflow-y-auto">
+                    <p className="text-xs text-text-secondary whitespace-pre-wrap leading-relaxed">{releaseNotes}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  onClick={() => { manualCheckRef.current = false; setUpdateDialogDismissed(true); }}
+                  className="flex-1 py-3 rounded-2xl text-sm font-bold bg-white/5 hover:bg-white/10 transition cursor-pointer text-text-secondary"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={() => { manualCheckRef.current = false; handleSkipVersion(); }}
+                  className="flex-1 py-3 rounded-2xl text-sm font-bold bg-white/5 hover:bg-white/10 transition cursor-pointer text-text-secondary"
+                >
+                  跳过此版本
+                </button>
+                <button
+                  onClick={() => { manualCheckRef.current = false; handleOpenDownload(); setUpdateDialogDismissed(true); }}
+                  className="flex-1 py-3 rounded-2xl text-sm font-bold bg-accent-green text-white hover:shadow-lg hover:shadow-accent-green/30 transition-all cursor-pointer"
+                >
+                  前往下载
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

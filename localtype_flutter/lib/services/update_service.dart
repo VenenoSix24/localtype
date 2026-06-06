@@ -9,6 +9,7 @@ class UpdateInfo {
   final String releaseNotes;
   final String downloadUrl;
   final bool available;
+  final bool skipped;
 
   UpdateInfo({
     required this.currentVersion,
@@ -16,6 +17,7 @@ class UpdateInfo {
     required this.releaseNotes,
     required this.downloadUrl,
     required this.available,
+    this.skipped = false,
   });
 }
 
@@ -54,9 +56,7 @@ class UpdateService {
 
     final prefs = await SharedPreferences.getInstance();
     final skippedVersion = prefs.getString(_skipVersionKey);
-    if (skippedVersion == latestVersion) {
-      return null;
-    }
+    final skipped = skippedVersion == latestVersion;
 
     final assets = data['assets'] as List<dynamic>;
     final downloadUrl = _findApkUrl(assets);
@@ -67,6 +67,7 @@ class UpdateService {
       releaseNotes: releaseNotes,
       downloadUrl: downloadUrl,
       available: true,
+      skipped: skipped,
     );
   }
 
@@ -96,8 +97,11 @@ class UpdateService {
   }
 
   static int _compareVersions(String a, String b) {
-    final aParts = a.split('.').map(int.parse).toList();
-    final bParts = b.split('.').map(int.parse).toList();
+    // 去除 pre-release 后缀（如 "1.2.3-beta" → "1.2.3"）
+    final cleanA = a.split('-').first;
+    final cleanB = b.split('-').first;
+    final aParts = cleanA.split('.').map((s) => int.tryParse(s) ?? 0).toList();
+    final bParts = cleanB.split('.').map((s) => int.tryParse(s) ?? 0).toList();
     for (var i = 0; i < 3; i++) {
       final aVal = i < aParts.length ? aParts[i] : 0;
       final bVal = i < bParts.length ? bParts[i] : 0;

@@ -8,6 +8,7 @@ import 'screens/input_screen.dart';
 import 'screens/insights_screen.dart';
 import 'screens/settings_screen.dart';
 import 'theme/app_theme.dart';
+import 'utils/update_dialog.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -90,6 +91,7 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
   int _lastIndex = 0;
+  bool _updateDialogShown = false;
 
   static const List<Widget> _screens = <Widget>[
     ConnectionScreen(),
@@ -97,6 +99,32 @@ class _MainScreenState extends State<MainScreen> {
     InsightsScreen(),
     SettingsScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = context.read<LocalTypeProvider>();
+      provider.addListener(_onProviderUpdate);
+    });
+  }
+
+  @override
+  void dispose() {
+    context.read<LocalTypeProvider>().removeListener(_onProviderUpdate);
+    super.dispose();
+  }
+
+  void _onProviderUpdate() {
+    if (_updateDialogShown) return;
+    final provider = context.read<LocalTypeProvider>();
+    if (!provider.isCheckingUpdate &&
+        provider.updateInfo?.available == true &&
+        provider.updateInfo?.skipped != true) {
+      _updateDialogShown = true;
+      showUpdateDialog(context, provider, provider.updateInfo!);
+    }
+  }
 
   void _onItemTapped(int index) {
     if (index == _selectedIndex) return;
