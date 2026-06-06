@@ -1,6 +1,6 @@
 [package]
 name = "LocalType"
-version = "1.2.5"
+version = "1.2.6"
 description = "手机到电脑的无缝打字工具"
 authors = ["VenenoSix24 <lagbqy@gmail.com>"]
 edition = "2021"
