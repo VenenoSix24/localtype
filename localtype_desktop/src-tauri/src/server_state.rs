@@ -27,6 +27,8 @@ pub struct AppConfig {
     pub device_name: String,
     pub server_id: String,
     pub discovery_interface: Option<String>,
+    #[serde(default)]
+    pub skipped_version: Option<String>,
 }
 
 impl Default for AppConfig {
@@ -37,6 +39,7 @@ impl Default for AppConfig {
                 .unwrap_or_else(|_| "LocalType Desktop".to_string()),
             server_id: uuid::Uuid::new_v4().to_string(),
             discovery_interface: None,
+            skipped_version: None,
         }
     }
 }

@@ -211,6 +211,127 @@ fn toggle_pause(paused: tauri::State<'_, Arc<AtomicBool>>) -> bool {
     new_state
 }
 
+/// 获取当前版本号
+#[tauri::command]
+fn get_current_version(app: tauri::AppHandle) -> String {
+    app.config().version.clone().unwrap_or_else(|| "unknown".to_string())
+}
+
+/// 比较 semver 版本号，返回 a > b 时为正数
+fn compare_versions(a: &str, b: &str) -> i32 {
+    // 去除 pre-release 后缀（如 "1.2.3-beta" → "1.2.3"）
+    let clean = |s: &str| -> String {
+        s.split('-').next().unwrap_or(s).to_string()
+    };
+    let parse = |s: &str| -> Vec<i32> {
+        clean(s).split('.').map(|p| p.parse().unwrap_or(0)).collect()
+    };
+    let a_parts = parse(a);
+    let b_parts = parse(b);
+    for i in 0..3 {
+        let av = a_parts.get(i).copied().unwrap_or(0);
+        let bv = b_parts.get(i).copied().unwrap_or(0);
+        if av != bv { return av - bv; }
+    }
+    0
+}
+
+/// 检查更新（通过 GitHub Releases API）
+#[tauri::command]
+async fn check_for_updates(app: tauri::AppHandle, state: tauri::State<'_, ServerState>) -> Result<serde_json::Value, String> {
+    let current_version = app.config().version.clone().unwrap_or_else(|| "0.0.0".to_string());
+
+    let client = reqwest::Client::new();
+    let resp = client
+        .get("https://api.github.com/repos/VenenoSix24/localtype/releases/latest")
+        .header("Accept", "application/vnd.github.v3+json")
+        .header("User-Agent", "LocalType")
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !resp.status().is_success() {
+        return Err(format!("GitHub API 返回状态码: {}", resp.status()));
+    }
+
+    let data: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+    let tag_name = data["tag_name"].as_str().unwrap_or("");
+    let latest_version = tag_name.trim_start_matches('v');
+    let release_notes = data["body"].as_str().unwrap_or("").to_string();
+
+    // 查找当前平台对应的下载链接
+    let download_url = find_download_url(&data["assets"]);
+
+    if compare_versions(latest_version, &current_version) <= 0 {
+        return Ok(serde_json::json!({
+            "available": false,
+            "current_version": current_version,
+        }));
+    }
+
+    let skipped = {
+        let config = state.config.lock().unwrap();
+        config.skipped_version.as_deref() == Some(latest_version)
+    };
+
+    Ok(serde_json::json!({
+        "available": true,
+        "current_version": current_version,
+        "latest_version": latest_version,
+        "release_notes": release_notes,
+        "download_url": download_url,
+        "skipped": skipped,
+    }))
+}
+
+/// 打开下载页面
+#[tauri::command]
+async fn open_download_page(url: String, app: tauri::AppHandle) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    app.opener().open_url(url, None::<&str>).map_err(|e| e.to_string())
+}
+
+/// 根据当前平台从 assets 中找到对应的下载链接
+fn find_download_url(assets: &serde_json::Value) -> String {
+    let assets = match assets.as_array() {
+        Some(a) => a,
+        None => return String::new(),
+    };
+
+    // 根据当前平台匹配文件名关键字
+    #[cfg(target_os = "macos")]
+    let keywords: Vec<&str> = if cfg!(target_arch = "aarch64") {
+        vec!["darwin-aarch64", "macos-aarch64"]
+    } else {
+        vec!["darwin-x64", "macos-x86_64"]
+    };
+    #[cfg(target_os = "windows")]
+    let keywords: Vec<&str> = vec!["windows"];
+    #[cfg(target_os = "linux")]
+    let keywords: Vec<&str> = vec!["linux"];
+
+    for asset in assets {
+        let name = asset["name"].as_str().unwrap_or("");
+        let url = asset["browser_download_url"].as_str().unwrap_or("");
+        let matched = keywords.iter().any(|kw| name.contains(kw));
+        if matched && (name.ends_with(".dmg") || name.ends_with(".msi") || name.ends_with(".exe") || name.ends_with(".AppImage") || name.ends_with(".deb")) {
+            return url.to_string();
+        }
+    }
+
+    String::new()
+}
+
+/// 跳过某个版本
+#[tauri::command]
+fn skip_version(version: String, state: tauri::State<'_, ServerState>) -> bool {
+    let mut config = state.config.lock().unwrap();
+    config.skipped_version = Some(version);
+    drop(config);
+    let _ = state.save_config();
+    true
+}
+
 // ====== 应用入口 ======
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -238,6 +359,10 @@ pub fn run() {
             update_device_alias,
             get_network_interfaces,
             update_discovery_interface,
+            get_current_version,
+            check_for_updates,
+            open_download_page,
+            skip_version,
         ])
         .setup(move |app| {
             let app_handle = app.handle().clone();

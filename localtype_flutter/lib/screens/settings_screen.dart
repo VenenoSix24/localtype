@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../providers/local_type_provider.dart';
+import '../utils/update_dialog.dart';
 import 'settings_device_screen.dart';
 import 'settings_appearance_screen.dart';
 import 'settings_typing_screen.dart';
@@ -10,6 +13,7 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final provider = Provider.of<LocalTypeProvider>(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -58,12 +62,20 @@ class SettingsScreen extends StatelessWidget {
             context,
             icon: Icons.info_outline_rounded,
             title: '软件版本',
-            subtitle: '点击检查更新 | 当前版本 v1.2.5',
+            subtitle: '当前版本 v${provider.currentVersion}',
             color: Colors.teal,
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('已是最新版本')),
-              );
+            onTap: () async {
+              if (provider.isCheckingUpdate) return;
+              await provider.checkForUpdate();
+              if (!context.mounted) return;
+              final info = provider.updateInfo;
+              if (info != null && info.available) {
+                showUpdateDialog(context, provider, info);
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('已是最新版本')),
+                );
+              }
             },
           ),
           const SizedBox(height: 16),

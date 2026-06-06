@@ -5,7 +5,10 @@ import 'dart:math';
 
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../services/update_service.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
@@ -128,6 +131,11 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
   // --- V1.2 聊天流 ---
   final List<MessageModel> _messages = [];
 
+  // --- 更新检查 ---
+  String? _currentVersion;
+  UpdateInfo? _updateInfo;
+  bool _isCheckingUpdate = false;
+
   /// 配对对话框回调
   Function(String)? onPairingRequired;
 
@@ -154,6 +162,9 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
   String get pageTransitionType => _pageTransitionType;
   String get bubbleColorType => _bubbleColorType;
   List<MessageModel> get messages => List.unmodifiable(_messages);
+  String get currentVersion => _currentVersion ?? '...';
+  UpdateInfo? get updateInfo => _updateInfo;
+  bool get isCheckingUpdate => _isCheckingUpdate;
 
   /// 批量删除消息
   void deleteMessages(List<String> ids) {
@@ -259,8 +270,15 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
     // Load Paired Devices
     await _loadPairedDevices();
 
+    // Load current version
+    final packageInfo = await PackageInfo.fromPlatform();
+    _currentVersion = packageInfo.version;
+
     _isInitialized = true;
     notifyListeners();
+
+    // Silent auto-check for updates
+    checkForUpdate(silent: true);
   }
 
   // ==================== 已配对设备逻辑 ====================
@@ -1100,6 +1118,34 @@ class LocalTypeProvider extends ChangeNotifier with WidgetsBindingObserver {
     await prefs.setInt('total_chars', _totalChars);
     await prefs.setInt('today_chars_$_todayDateKey', _todayChars);
     notifyListeners();
+  }
+
+  // ==================== 更新检查 ====================
+
+  Future<void> checkForUpdate({bool silent = false}) async {
+    _isCheckingUpdate = true;
+    if (!silent) notifyListeners();
+
+    try {
+      final info = await UpdateService.checkForUpdate();
+      _updateInfo = info;
+    } catch (e) {
+      if (!silent) {
+        addLog('检查更新失败: $e');
+      }
+      _updateInfo = null;
+    }
+
+    _isCheckingUpdate = false;
+    notifyListeners();
+  }
+
+  Future<void> skipCurrentUpdate() async {
+    if (_updateInfo != null && _updateInfo!.available) {
+      await UpdateService.skipVersion(_updateInfo!.latestVersion);
+      _updateInfo = null;
+      notifyListeners();
+    }
   }
 
   void _addSystemMessage(String text) {
