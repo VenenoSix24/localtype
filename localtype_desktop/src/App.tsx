@@ -107,7 +107,11 @@ function Dashboard({ serverInfo, connectedCount, pairing, setPairing, pairingSuc
             <div className="p-3 bg-accent-blue/10 rounded-2xl w-fit text-accent-blue"><Wifi size={24} /></div>
             <p className="text-sm font-bold text-text-secondary opacity-60 uppercase tracking-widest">内网地址</p>
           </div>
-          <p className="text-lg font-mono font-black text-text-primary break-all leading-tight">{serverInfo?.ip || "获取中..."}</p>
+          <p className="text-lg font-mono font-black text-text-primary break-all leading-tight">
+            {serverInfo?.ip || "获取中..."}
+            {serverInfo?.ip && <span className="text-text-secondary/40 mx-1.5">·</span>}
+            {serverInfo?.ip && <span className="text-accent-blue">#{serverInfo.ip.split('.').pop()}</span>}
+          </p>
         </div>
 
         <div className="glass-card p-6 rounded-4xl border-white/5 flex flex-col justify-between min-h-40">

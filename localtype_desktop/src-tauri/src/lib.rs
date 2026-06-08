@@ -662,7 +662,8 @@ async fn accept_connection<S>(
 
                                         let response = serde_json::to_string(&ServerResponse::PairingSuccess { 
                                             token,
-                                            os: std::env::consts::OS.to_string()
+                                            os: std::env::consts::OS.to_string(),
+                                            name: state.config.lock().unwrap().device_name.clone()
                                         }).unwrap();
                                         let _ = ws_write.send(Message::Text(response)).await;
                                     } else {
@@ -702,7 +703,8 @@ async fn accept_connection<S>(
                                         let _ = app_handle.emit("devices-changed", ());
 
                                         let response = serde_json::to_string(&ServerResponse::AuthSuccess {
-                                            os: std::env::consts::OS.to_string()
+                                            os: std::env::consts::OS.to_string(),
+                                            name: state.config.lock().unwrap().device_name.clone()
                                         }).unwrap();
                                         let _ = ws_write.send(Message::Text(response)).await;
                                     } else {
@@ -839,8 +841,8 @@ enum ClientMessage {
 enum ServerResponse {
     Pong,
     PairingCodeRequired,
-    PairingSuccess { token: String, os: String },
-    AuthSuccess { os: String },
+    PairingSuccess { token: String, os: String, name: String },
+    AuthSuccess { os: String, name: String },
     AuthFailed,
     Unpaired,
     Ack { msg_id: String },
