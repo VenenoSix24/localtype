@@ -8,6 +8,7 @@
   <img src="https://img.shields.io/badge/Rust-000000?style=for-the-badge&logo=rust&logoColor=white" />
 </p>
 
+
 **LocalType** 是一款跨设备输入增强工具，旨在将手机变为电脑的“第二键盘”。通过局域网连接，您可以在手机上舒适地输入长文本，并一键将其输入到电脑端。
 
 希望能帮助到不习惯、不喜欢、不舒服电脑打字的大家，欢迎大家使用！！
@@ -15,7 +16,10 @@
 > [!IMPORTANT]
 > **🎉 iOS 版现已发布！仓库：[VenenoSix24/localtype-ios](https://github.com/VenenoSix24/localtype-ios)**
 
----
+<p>
+  <img src="public/LocalType-Hero.png" alt="LocalType Hero" />
+</p>
+
 
 ## 功能亮点
 
@@ -26,7 +30,6 @@
 - **外观自定义**：深色模式、多种全局配色、气泡样式、页面过渡动画、字体选择，自由 DIY。
 - **安全配对**：基于 6 位动态验证码的局域网授权协议，确保连接私密安全。
 
----
 
 ## 快速上手
 
@@ -57,7 +60,6 @@ flutter pub get
 flutter build apk
 ```
 
----
 
 ## 使用提示
 
@@ -65,7 +67,6 @@ flutter build apk
 2. **首次配对**：在桌面端开启服务后，查看显示的 6 位配对码，并在手机端输入即可完成连接。
 3. **输入模式**：默认推荐使用 `Unicode` 模式，兼容性极佳且不干扰剪贴板。
 
----
 
 ## 许可协议
 
