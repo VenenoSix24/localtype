@@ -12,6 +12,9 @@
 
 希望能帮助到不习惯、不喜欢、不舒服电脑打字的大家，欢迎大家使用！！
 
+> [!IMPORTANT]
+> **🎉 iOS 版现已发布！仓库：[VenenoSix24/localtype-ios](https://github.com/VenenoSix24/localtype-ios)**
+
 ---
 
 ## 功能亮点
@@ -28,14 +31,18 @@
 ## 快速上手
 
 ### 1. 下载安装
+
 您可以直接前往 [GitHub Releases](https://github.com/VenenoSix24/localtype/releases) 页面下载预编译好的安装包：
+
 - **Windows / macOS / Linux**: 下载对应系统的安装文件并运行。
 - **Android / ~~iOS~~**: 下载对应系统文件至手机安装。
 
 ### 2. 从源代码编译
+
 如果您希望自行构建项目，请确保已安装 `Rust`, `Node.js` 和 `Flutter SDK`。
 
 #### 桌面端
+
 ```bash
 cd localtype_desktop
 npm install
@@ -43,6 +50,7 @@ npm run tauri build
 ```
 
 #### 移动端
+
 ```bash
 cd localtype_flutter
 flutter pub get
